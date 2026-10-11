@@ -1,0 +1,160 @@
+<!doctype html>
+<!-- SAVE AS: index.html  ·  LOCATION: C:/MarvelApps/hubs/index.html
+     THE HUB SERIES - one page for the whole family of apps (Scott 2026-10-11 business plan, days 1-30:
+     "Create the Hub Series website ... and an email waitlist"; plan in C:/MarvelDesktop/docs/HUB_SERIES_BUSINESS_PLAN_2026-10-11.md).
+     LIVE at smarvel1963-ops.github.io/hubs/ (Scott 10/11 "yes to both"). The waitlist form posts to the Day Hub AI
+     relay (task "waitlist", relay v9) which adds one row to the "Hub Waitlist" sheet in Scott's Google Drive. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Hub Series — Marvel Corp</title>
+<meta name="description" content="Day Hub, Cruise Hub, Trip Hub and Home Hub — simple apps that organize your day, your trips and your home. Free to use. No ads, ever.">
+<link rel="icon" href="day.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #071433; --bg2: #0e2a63; --card: rgba(255,255,255,.07); --line: rgba(255,255,255,.14); --text: #f3f6ff; --muted: #b7c3e6; --gold: #ffd166; --green: #4be3a0; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, system-ui, sans-serif; color: var(--text); background: linear-gradient(180deg, var(--bg2) 0%, var(--bg) 55%) fixed; line-height: 1.5; }
+a { color: inherit; }
+.wrap { max-width: 1060px; margin: 0 auto; padding: 0 16px; }
+header { padding: 56px 0 28px; text-align: center; }
+.kicker { letter-spacing: .14em; text-transform: uppercase; font-size: .78rem; color: var(--gold); font-weight: 700; }
+h1 { font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.08; margin: 10px 0 14px; font-weight: 800; }
+.lead { font-size: clamp(1rem, 2.4vw, 1.2rem); color: var(--muted); max-width: 640px; margin: 0 auto; }
+.badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+.badge { border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: .85rem; background: var(--card); }
+.apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; padding: 24px 0 8px; }
+.app { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.app img { width: 84px; height: 84px; border-radius: 20px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.app h2 { margin: 4px 0 0; font-size: 1.35rem; }
+.app .tag { color: var(--gold); font-weight: 600; font-size: .92rem; margin: 0; }
+.app ul { margin: 2px 0 0; padding-left: 18px; color: var(--muted); font-size: .92rem; }
+.app .price { font-size: .88rem; color: var(--muted); margin-top: auto; }
+.app .price b { color: var(--text); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { display: inline-block; text-decoration: none; font-weight: 700; font-size: .92rem; border-radius: 12px; padding: 10px 14px; border: 0; cursor: pointer; font-family: inherit; }
+.btn.go { background: var(--green); color: #032b1b; }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.soon { font-size: .78rem; background: rgba(255,209,102,.18); color: var(--gold); border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: middle; }
+section { padding: 30px 0; }
+h3 { font-size: 1.4rem; margin: 0 0 12px; text-align: center; }
+.how { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.step { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+.step b { display: block; font-size: 1.05rem; margin-bottom: 4px; }
+.step span { color: var(--muted); font-size: .92rem; }
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.plan { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+.plan .amt { font-size: 1.5rem; font-weight: 800; }
+.plan p { color: var(--muted); font-size: .92rem; margin: 6px 0 12px; }
+.wait { background: linear-gradient(135deg, rgba(75,227,160,.16), rgba(255,209,102,.12)); border: 1px solid var(--line); border-radius: 22px; padding: 24px; text-align: center; }
+.wait form { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+.wait input { flex: 1 1 240px; max-width: 340px; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--text); font: inherit; }
+.wait select { padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--text); font: inherit; }
+.wait .fine { color: var(--muted); font-size: .82rem; margin-top: 10px; }
+footer { padding: 30px 0 46px; text-align: center; color: var(--muted); font-size: .85rem; }
+footer a { color: var(--muted); }
+@media (max-width: 480px) { header { padding-top: 34px; } .app { padding: 16px; } }
+</style>
+</head>
+<body>
+<header class="wrap">
+  <div class="kicker">The Hub Series · by Marvel Corp</div>
+  <h1>Your day. Your trips. Your home.<br>All connected.</h1>
+  <p class="lead">Simple apps that keep the things you juggle on one screen — and actually tell you what to do next. Free to use, works offline, no ads. Ever.</p>
+  <div class="badges"><span class="badge">📲 Install from your browser — no app store</span><span class="badge">🔒 Your info stays on your phone</span><span class="badge">🚫 No ads, ever</span></div>
+</header>
+
+<main class="wrap">
+  <div class="apps">
+    <article class="app">
+      <img src="day.png" alt="Day Hub icon">
+      <h2>Day Hub</h2>
+      <p class="tag">Your whole day on one screen.</p>
+      <ul><li>Schedule, weather, to-dos and bills together</li><li>Brain dump: say it once, it sorts itself</li><li>Morning brief and reminders</li></ul>
+      <p class="price">Free · <b>Pro $4.99/mo</b> or $29.99/yr</p>
+      <div class="btns"><a class="btn go" href="https://smarvel1963-ops.github.io/dayhub/">Open Day Hub</a><a class="btn ghost" href="https://whop.com/commander-marvel-por-picks/day-hub-pro">Get Pro</a></div>
+    </article>
+    <article class="app">
+      <img src="cruise.png" alt="Cruise Hub icon">
+      <h2>Cruise Hub</h2>
+      <p class="tag">Every cruise, planned on your phone.</p>
+      <ul><li>Countdown, payments and due dates</li><li>Port days with all-aboard alarms</li><li>Ship and port guides, packing by bag</li></ul>
+      <p class="price">Free · <b>Cruise Hub Pass $9.99/yr</b></p>
+      <div class="btns"><a class="btn go" href="https://smarvel1963-ops.github.io/cruisehub/">Open Cruise Hub</a><a class="btn ghost" href="https://whop.com/commander-marvel-por-picks/cruise-hub-pass">Get the Pass</a></div>
+    </article>
+    <article class="app">
+      <img src="trip.png" alt="Trip Hub icon">
+      <h2>Trip Hub</h2>
+      <p class="tag">Flights, hotels and road trips — sorted.</p>
+      <ul><li>Paste a confirmation, get your bookings</li><li>Leave-by times and Fix My Trip when plans change</li><li>Split the cost with your group</li></ul>
+      <p class="price">Free · <b>Trip Hub Pass $9.99/yr</b></p>
+      <div class="btns"><a class="btn go" href="https://smarvel1963-ops.github.io/triphub/">Open Trip Hub</a><a class="btn ghost" href="https://whop.com/commander-marvel-por-picks/trip-hub-pass">Get the Pass</a></div>
+    </article>
+    <article class="app">
+      <img src="home.png" alt="Home Hub icon">
+      <h2>Home Hub <span class="soon">Coming soon</span></h2>
+      <p class="tag">Know your home. Fix it. Improve it. Protect it.</p>
+      <ul><li>Every room, yard and system in one place</li><li>Items, maintenance tasks and notes per room</li><li>Repeating reminders so nothing gets missed</li></ul>
+      <p class="price">Join the waitlist below for first access.</p>
+      <div class="btns"><a class="btn ghost" href="#waitlist">Get early access</a></div>
+    </article>
+  </div>
+
+  <section>
+    <h3>Add AI to any Hub app</h3>
+    <div class="plans">
+      <div class="plan"><div class="amt">100 questions · $2.99</div><p>Ask your app about your own plans — “What time is our hotel check-in?”, “What bills are due before payday?”</p><a class="btn ghost" href="https://whop.com/commander-marvel-por-picks/hub-ai-credits-100-questions">Get 100</a></div>
+      <div class="plan"><div class="amt">500 questions · $9.99</div><p>Works in every Hub app on your phone. Credits never expire. One-time, not a subscription.</p><a class="btn ghost" href="https://whop.com/commander-marvel-por-picks/hub-ai-credits-500-questions">Get 500</a></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>How it works</h3>
+    <div class="how">
+      <div class="step"><b>1 · Open the app</b><span>Tap an app above. It runs right in your browser — on your phone or computer.</span></div>
+      <div class="step"><b>2 · Install it</b><span>Tap “Install” at the top (Android/PC), or Share → Add to Home Screen on iPhone (Safari).</span></div>
+      <div class="step"><b>3 · Use it free</b><span>Everything you type stays on your phone. Turn on backup to your own Google Drive if you want.</span></div>
+      <div class="step"><b>4 · Go Pro if it helps</b><span>Buy on Whop, then enter the email you used in the app’s ⚙ settings. Works on up to 3 phones.</span></div>
+    </div>
+  </section>
+
+  <section id="waitlist">
+    <div class="wait">
+      <h3 style="margin-bottom:4px">Be first for Home Hub and the next apps</h3>
+      <p style="color:var(--muted);margin:0">Auto Hub, Pet Hub, Family Hub and more are on the way. One email when your app is ready — no spam.</p>
+      <form id="waitForm">
+        <input type="email" name="email" placeholder="Your email" required aria-label="Your email" maxlength="190">
+        <select name="app" aria-label="Which app"><option>Home Hub</option><option>Auto Hub</option><option>Pet Hub</option><option>Family Hub</option><option>All of them</option></select>
+        <button class="btn go">Join the waitlist</button>
+      </form>
+      <p id="waitMsg" class="fine" role="status" aria-live="polite"></p>
+      <p class="fine">We only use your email to tell you when an app is ready.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p><b>Marvel Corp</b> · Questions: <a href="mailto:smarvel1963@gmail.com">smarvel1963@gmail.com</a></p>
+  <p><a href="https://smarvel1963-ops.github.io/dayhub/privacy.html">Privacy</a> · <a href="https://smarvel1963-ops.github.io/dayhub/terms.html">Terms</a></p>
+</footer>
+<script>
+// Waitlist -> Day Hub AI relay (text/plain = no CORS preflight; same pattern the apps use).
+const RELAY = "https://script.google.com/macros/s/AKfycbyVbxOCPR7v8UNTVufOWKOKBpI19-NcWEXMVzjP86iKraxenseHpWL95W9sB_Rr6DXo/exec";
+document.getElementById("waitForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target, b = f.querySelector("button"), m = document.getElementById("waitMsg");
+  b.disabled = true; b.textContent = "Joining…"; m.textContent = "";
+  try {
+    const r = await fetch(RELAY, { method: "POST", headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ task: "waitlist", email: f.email.value.trim(), app: f.app.value, src: "hubs" }) });
+    const j = await r.json();
+    if (j.ok) { b.textContent = "You're on the list ✓"; m.textContent = j.dup ? "You were already on it — we'll email you when " + f.app.value + " is ready." : "Thanks! We'll email you when " + f.app.value + " is ready."; f.email.value = ""; setTimeout(() => { b.disabled = false; b.textContent = "Join the waitlist"; }, 4000); return; }
+    m.textContent = j.error || "Something went wrong — try again.";
+  } catch (err) { m.textContent = "Couldn't reach the waitlist — check your connection and try again."; }
+  b.disabled = false; b.textContent = "Join the waitlist";
+});
+</script>
+</body>
+</html>
