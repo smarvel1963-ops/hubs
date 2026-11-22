@@ -7,7 +7,7 @@ import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, thumbnailUrl, fullImageUrl } from '../native/media-library.js';
 import { pending as vaultPending } from './vault.js';
-import { toggleHeart, albumName, listMyAlbums, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum } from '../native/web-library.js';
+import { toggleHeart, hasFile, albumName, listMyAlbums, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum } from '../native/web-library.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 
@@ -193,8 +193,9 @@ export function openViewer(item) {
   const when = new Date(item.date);
   const dims = item.width && item.height ? `${item.width} x ${item.height}` : '';
   // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here
-  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${item.web ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}</div>
-    <div class="stage">${isVideo ? (item.web ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
+  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${item.web ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button>${hasFile(item) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}` : ''}</div>
+    <div class="stage">${isVideo ? (item.web && hasFile(item) ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : item.web ? `<img alt="" src="${esc(fullImageUrl(item))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
+    ${item.web && !hasFile(item) ? `<div class="small-note">Small copy - pick this photo again to see it full size${item.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
     <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${item.favorite ? ' &middot; Favorite' : ''}<br>
       ${esc(item.name || '')}<br>${esc([formatBytes(item.size), dims, item.bucketName, isVideo ? formatDuration(item.durationMs) : ''].filter(Boolean).join(' · '))}</div>`;
   v.querySelector('button').addEventListener('click', () => v.remove());

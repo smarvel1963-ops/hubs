@@ -2,7 +2,8 @@
 // WEB VERSION of the photo library (Scott 11/22: "been trying to do like all the rest all day" - Photo Hub in the browser like the Hubs,
 // no install, no Play test). A web page can't read the whole phone library, so the person PICKS photos and videos (the phone's own
 // picker - "Select all" works) and Photo Hub shows them its way: by day, albums by month, counts, sizes. The files stay on the phone:
-// nothing is uploaded, nothing is changed, nothing is kept after the page closes (pick again next time). Same answers as the native
+// nothing is uploaded, nothing is changed. 11/22 ("yes build sounds cool"): a SMALL COPY of each picked photo (+ its date, name, size) is
+// remembered on the phone (IndexedDB), so the next visit opens straight to them; full size needs the photo picked again. Same answers as the native
 // MediaLibrary plugin (listMedia / getLibrarySummary / listAlbums), so every screen works unchanged.
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -11,6 +12,76 @@ const files = new Map();        // id -> File
 const thumbs = new Map();       // id -> object URL ('' = could not make one)
 const fulls = new Map();        // id -> object URL
 let nextId = 1;
+// ---------- REMEMBERED PICKS (11/22) ----------
+const PDB = 'photohub-picks';
+const smallBlobs = new Map();   // id -> the remembered small copy (Blob), for photos not picked again this visit
+let loaded = null;
+function pdb() {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open(PDB, 1);
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('picks')) r.result.createObjectStore('picks', { keyPath: 'sig' }); };
+    r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+  });
+}
+async function pstore(mode, fn) {
+  const d = await pdb();
+  return new Promise((resolve, reject) => {
+    const t = d.transaction('picks', mode); let out;
+    const r = fn(t.objectStore('picks'));
+    if (r) r.onsuccess = () => { out = r.result; };
+    t.oncomplete = () => { d.close(); resolve(out); }; t.onerror = () => { d.close(); reject(t.error); };
+  });
+}
+/** Loads the remembered small copies once per visit. */
+function loadRemembered() {
+  if (!loaded) loaded = (async () => {
+    let rows = [];
+    try { rows = (await pstore('readonly', (s) => s.getAll())) || []; } catch (e) { rows = []; }
+    const have = new Set(items.map(sigOf));
+    for (const r of rows) {
+      if (have.has(r.sig)) continue;
+      const id = 'w' + nextId++;
+      if (r.thumb) smallBlobs.set(id, r.thumb);
+      items.push({ id, web: true, remembered: true, type: r.type, mime: r.mime, name: r.name, size: r.size, lastModified: r.lastModified, date: r.date,
+        dateModified: r.lastModified, bucketId: r.bucketId, bucketName: r.bucketName, favorite: hearts.has(r.sig), durationMs: r.durationMs || null,
+        width: r.width || 0, height: r.height || 0 });
+    }
+    items.sort((a, b) => b.date - a.date);
+  })();
+  return loaded;
+}
+let saving = Promise.resolve();
+/** Saves a small copy of each newly picked photo, one after another in the background. */
+function rememberNew(list) {
+  saving = saving.then(async () => {
+    for (const it of list) {
+      try {
+        const url = await thumbUrl(it);
+        const thumb = url ? await (await fetch(url)).blob() : null;
+        const rec = { sig: sigOf(it), type: it.type, mime: it.mime, name: it.name, size: it.size, lastModified: it.lastModified, date: it.date,
+          bucketId: it.bucketId, bucketName: it.bucketName, durationMs: it.durationMs, width: it.width, height: it.height, thumb, added: Date.now() };
+        await pstore('readwrite', (s) => s.put(rec));
+      } catch (e) { /* storage full / private mode: this one is just not remembered */ }
+    }
+  });
+  return saving;
+}
+/** Waits until every picked photo's small copy is saved (tests + the Forget button). */
+export function rememberDone() { return saving; }
+/** true when the full-size photo is here this visit (picked again), false for a remembered small copy only. */
+export function hasFile(item) { return files.has(item.id); }
+/** How many small copies are remembered on this phone, and how much space they take. */
+export async function rememberedStats() {
+  let rows = [];
+  try { rows = (await pstore('readonly', (s) => s.getAll())) || []; } catch (e) { rows = []; }
+  return { count: rows.length, bytes: rows.reduce((t, r) => t + (r.thumb ? r.thumb.size : 0), 0) };
+}
+/** Forget my photos: the remembered small copies and this visit's picks are cleared (hearts, albums and the vault stay). */
+export async function forgetAll() {
+  try { await pstore('readwrite', (s) => s.clear()); } catch (e) { /* nothing saved */ }
+  for (const m of [thumbs, fulls]) { for (const u of m.values()) if (u) URL.revokeObjectURL(u); m.clear(); }
+  items = []; files.clear(); smallBlobs.clear();
+}
 // HEARTS (Scott 11/22: "photo on our app should have heart for phone") - a hearted photo stays on the phone. Kept on the phone by
 // the file's name + size + date, so the same photo picked again keeps its heart.
 const HEARTS = 'photohub.hearts';
@@ -57,6 +128,7 @@ export const isWeb = true;
 export function count() { return items.length; }
 
 export async function getAccess() {
+  await loadRemembered();
   return { state: items.length ? 'granted' : 'prompt', favoritesSupported: true, web: true };
 }
 
@@ -86,13 +158,16 @@ export function requestAccess() {
 
 /** Adds picked files (skips the same file picked twice). Reads each JPEG's own "date taken" when it has one. */
 export async function addFiles(list) {
-  const seen = new Set(items.map((i) => `${i.name}|${i.size}|${i.lastModified}`));
+  await loadRemembered();
+  const bySig = new Map(items.map((i) => [sigOf(i), i]));
+  const added = [];
   for (const f of list) {
     const type = /^video\//.test(f.type) ? 'video' : /^image\//.test(f.type) ? 'image' : null;
     if (!type) continue;
     const sig = `${f.name}|${f.size}|${f.lastModified}`;
-    if (seen.has(sig)) continue;
-    seen.add(sig);
+    const had = bySig.get(sig);
+    if (had) { if (!files.has(had.id)) { files.set(had.id, f); had.remembered = false; } continue; }   // picked again: full size is back
+    bySig.set(sig, true);
     let date = f.lastModified || Date.now();
     if (type === 'image' && /jpe?g/i.test(f.type)) {
       const taken = await exifDate(f).catch(() => null);
@@ -104,8 +179,10 @@ export async function addFiles(list) {
     items.push({ id, web: true, type, mime: f.type, name: f.name, size: f.size, lastModified: f.lastModified, date, dateModified: f.lastModified,
       bucketId: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, bucketName: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
       favorite: hearts.has(sig), durationMs: null, width: 0, height: 0 });
+    added.push(items[items.length - 1]);
   }
   items.sort((a, b) => b.date - a.date);
+  if (added.length) rememberNew(added);   // small copies saved in the background
 }
 
 function filtered({ type = 'all', bucketId = null, favoritesOnly = false, albumId = null } = {}) {
@@ -140,7 +217,7 @@ export async function listAlbums() {
 
 export function fullUrl(item) {
   if (!fulls.has(item.id) && files.has(item.id)) fulls.set(item.id, URL.createObjectURL(files.get(item.id)));
-  return fulls.get(item.id) || '';
+  return fulls.get(item.id) || thumbs.get(item.id) || '';   // a remembered photo shows its small copy until it is picked again
 }
 
 const SIZE = 320;
@@ -148,6 +225,8 @@ const SIZE = 320;
 export async function thumbUrl(item) {
   if (thumbs.has(item.id)) return thumbs.get(item.id);
   const f = files.get(item.id);
+  if (!f && smallBlobs.has(item.id)) { const u = URL.createObjectURL(smallBlobs.get(item.id)); thumbs.set(item.id, u); return u; }
+  if (!f) return '';
   let url = '';
   try { url = item.type === 'video' ? await videoThumb(item, f) : await imageThumb(item, f); } catch (e) { url = ''; }
   thumbs.set(item.id, url);
@@ -197,6 +276,8 @@ export function fileFor(id) { return files.get(id) || null; }
 
 /** Takes a picked item out of the web list (it went into the vault). */
 export function removeItem(id) {
+  const gone = items.find((i) => i.id === id);
+  if (gone) pstore('readwrite', (s) => s.delete(sigOf(gone))).catch(() => {});
   items = items.filter((i) => i.id !== id);
   files.delete(id);
   for (const m of [thumbs, fulls]) { const u = m.get(id); if (u) URL.revokeObjectURL(u); m.delete(id); }

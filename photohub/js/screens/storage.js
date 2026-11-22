@@ -9,6 +9,7 @@ import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, getLibrarySummary, listMedia, thumbnailUrl } from '../native/media-library.js';
 import * as vs from '../lib/vault-store.js';
+import { rememberedStats, forgetAll } from '../native/web-library.js';
 import { getNetwork, onNetworkChange, describeNetwork } from '../native/network.js';
 import { loadSettings, saveSettings } from '../lib/settings.js';
 import { formatBytes, formatCount, usedFraction } from '../lib/timeline.js';
@@ -65,6 +66,7 @@ export async function render(root, params, ctx) {
           <div class="stat"><span>Videos ${ctx.access.web ? 'picked' : 'on phone'}</span><b id="phVideos">--</b></div>
           <div class="stat"><span>Favorites (stay on phone)</span><b id="phFav">--</b></div>
       </div>
+      ${ctx.access.web ? '<p class="note" id="remLine"></p><button class="ghost-btn" id="forget" hidden>Forget my photos</button>' : ''}
       <p class="note" id="libNote">${canRead(ctx.access) ? '' : 'Phone numbers show once you allow photo access.'}</p>
       ${canRead(ctx.access) || ctx.access.state === 'unavailable' ? '' : `<button class="primary-btn" id="ask">${ctx.access.web ? 'Pick photos' : 'Allow photo access'}</button>`}
     </section>
@@ -109,6 +111,13 @@ export async function render(root, params, ctx) {
   }
 
   root.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) ctx.go(b.dataset.go); });
+  // 11/22 remembered picks: how many small copies this phone keeps, and Forget my photos
+  if (ctx.access.web) rememberedStats().then((r) => {
+    const line = root.querySelector('#remLine'), btn = root.querySelector('#forget');
+    if (!alive || !line) return;
+    line.textContent = r.count ? `Remembered on this phone: ${formatCount(r.count)} small ${r.count === 1 ? 'copy' : 'copies'} · ${formatBytes(r.bytes)}. Full size comes back when you pick a photo again.` : 'Photos you pick are remembered here as small copies, so they are waiting next time.';
+    if (r.count) { btn.hidden = false; btn.onclick = async () => { if (!confirm('Forget the photos Photo Hub remembers on this phone? Your hearts, albums and vault stay.')) return; await forgetAll(); ctx.setAccess(await ctx.refreshAccess()); ctx.rerender(); }; }
+  }).catch(() => {});
   vs.hasCode().then((h) => { const n = root.querySelector('#vaultLine'); if (alive && n) n.textContent = h ? 'Locked & private' : 'Set your code'; }).catch(() => {});
   if (canRead(ctx.access)) listMedia({ type: 'all', favoritesOnly: true, limit: 3, offset: 0 }).then(async (f) => {
     const box = root.querySelector('#favPics');
