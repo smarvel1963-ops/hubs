@@ -7,7 +7,8 @@ import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, thumbnailUrl, fullImageUrl } from '../native/media-library.js';
 import { pending as vaultPending } from './vault.js';
-import { toggleHeart } from '../native/web-library.js';
+import { toggleHeart, albumName, listMyAlbums, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum } from '../native/web-library.js';
+import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 
 const PAGE = 120;
@@ -17,15 +18,16 @@ export async function render(root, params, ctx) {
   const type = ['all', 'image', 'video'].includes(params.type) ? params.type : 'all';
   const bucketId = params.bucket || null;
   const fav = params.fav === '1';
-  const title = params.title || (type === 'video' ? 'Videos' : 'All Photos');
+  const albumId = params.album || null;   // one of your own albums (11/22)
+  const title = (albumId && albumName(albumId)) || params.title || (type === 'video' ? 'Videos' : 'All Photos');
   const access = ctx.access;
 
   root.innerHTML = `<div class="screen">
     <div class="subbar">
       <button class="icon-btn" id="back" aria-label="Back">${icons.back}</button>
-      <h1>${esc(title)}</h1><span class="count" id="count"></span>
+      <h1>${esc(title)}</h1><span class="count" id="count"></span>${albumId ? `<button class="pill-btn" id="albumEdit">Edit</button>` : ''}
     </div>
-    ${bucketId ? '' : `<div class="chips">
+    ${bucketId || albumId ? '' : `<div class="chips">
       <button class="chip ${type === 'all' && !fav ? 'on' : ''}" data-go="#photos?type=all&title=All%20Photos">All</button>
       <button class="chip ${type === 'image' && !fav ? 'on' : ''}" data-go="#photos?type=image&title=Photos">Photos</button>
       <button class="chip ${type === 'video' ? 'on' : ''}" data-go="#videos">Videos</button>
@@ -39,6 +41,10 @@ export async function render(root, params, ctx) {
 
   const list = root.querySelector('#list');
   const status = root.querySelector('#status');
+  const ae = root.querySelector('#albumEdit');
+  if (ae) ae.addEventListener('click', () => sheet({ icon: 'image', title, body: 'Rename this album, or delete it. Deleting an album never deletes a photo.',
+    actions: [{ label: 'Rename', primary: true, onClick: async () => { const n = await askText({ title: 'Rename album', value: title }); if (n) { renameAlbum(albumId, n); ctx.rerender(); } } },
+      { label: 'Delete album', onClick: () => { deleteAlbum(albumId); ctx.go('#albums'); } }, { label: 'Cancel' }] }));
   root.querySelector('#back').addEventListener('click', () => (history.length > 1 ? history.back() : ctx.go('#home')));
   root.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-go]');
@@ -133,13 +139,13 @@ export async function render(root, params, ctx) {
     loading = true;
     status.innerHTML = '<div class="loading">Loading photos...</div>';
     try {
-      const r = await listMedia({ type, bucketId, favoritesOnly: fav, offset, limit: PAGE });
+      const r = await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
       if (!alive) return;
       offset = r.offset + r.items.length;
       hasMore = r.hasMore;
       root.querySelector('#count').textContent = `${formatCount(r.total)} ${r.total === 1 ? 'item' : 'items'}`;
       if (offset === 0 && !r.items.length) {
-        list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div><b>Nothing here yet</b>${fav ? (access.web ? 'Open a photo and tap the heart - it stays on your phone.' : 'Heart a photo in your phone\'s gallery and it shows up here.') : 'No photos or videos on this phone match.'}</div>`;
+        list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div><b>Nothing here yet</b>${albumId ? 'Open any photo and tap "Add to album" to put it here.' : fav ? (access.web ? 'Open a photo and tap the heart - it stays on your phone.' : 'Heart a photo in your phone\'s gallery and it shows up here.') : 'No photos or videos on this phone match.'}</div>`;
       } else {
         appendItems(r.items);
       }
@@ -187,13 +193,15 @@ function openViewer(item) {
   const when = new Date(item.date);
   const dims = item.width && item.height ? `${item.width} x ${item.height}` : '';
   // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here
-  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${item.web ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}</div>
+  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${item.web ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}</div>
     <div class="stage">${isVideo ? (item.web ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
     <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${item.favorite ? ' &middot; Favorite' : ''}<br>
       ${esc(item.name || '')}<br>${esc([formatBytes(item.size), dims, item.bucketName, isVideo ? formatDuration(item.durationMs) : ''].filter(Boolean).join(' · '))}</div>`;
   v.querySelector('button').addEventListener('click', () => v.remove());
   const tv = v.querySelector('#tovault');
   if (tv) tv.addEventListener('click', () => { vaultPending.item = item; v.remove(); location.hash = '#vault'; });
+  const ta = v.querySelector('#toalbum');
+  if (ta) ta.addEventListener('click', () => albumPicker(item));
   const hb = v.querySelector('#heart');
   if (hb) hb.addEventListener('click', () => {
     const on = toggleHeart(item);
@@ -203,4 +211,29 @@ function openViewer(item) {
     if (cell) { cell.querySelector('.fav')?.remove(); if (on) cell.insertAdjacentHTML('beforeend', `<span class="fav">${icons.heart}</span>`); }
   });
   document.body.appendChild(v);
+}
+
+// YOUR OWN ALBUMS (11/22): tick the albums this photo goes in; "New album" makes one and puts the photo in it.
+function albumPicker(item) {
+  const back = document.createElement('div');
+  back.className = 'sheet-backdrop';
+  const draw = () => {
+    const mine = listMyAlbums(), inn = new Set(albumsWith(item));
+    back.innerHTML = `<div class="sheet"><div class="grab"></div><h2>Add to album</h2>
+      <div class="album-pick">${mine.length ? mine.map((a) => `<button data-a="${esc(a.id)}" class="${inn.has(a.id) ? 'on' : ''}"><span class="box">${inn.has(a.id) ? icons.check : ''}</span><span class="nm">${esc(a.name)}</span><span class="ct">${a.total}</span></button>`).join('') : '<p class="note">No albums yet - make your first one.</p>'}</div>
+      <div class="actions"><button class="primary-btn" data-new>+ New album</button><button class="ghost-btn" data-done>Done</button></div></div>`;
+  };
+  draw();
+  back.addEventListener('click', async (e) => {
+    if (e.target === back || e.target.closest('[data-done]')) { back.remove(); return; }
+    const a = e.target.closest('[data-a]');
+    if (a) { toggleInAlbum(a.dataset.a, item); draw(); return; }
+    if (e.target.closest('[data-new]')) {
+      back.remove();
+      const n = await askText({ title: 'New album', label: 'Give it a name - like "Grandkids", "Beach 2026" or "Recipes".', ok: 'Make album' });
+      if (n) { const id = createAlbum(n); toggleInAlbum(id, item); }
+      document.body.appendChild(back); draw();
+    }
+  });
+  document.body.appendChild(back);
 }

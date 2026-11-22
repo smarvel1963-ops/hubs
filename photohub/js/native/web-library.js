@@ -18,6 +18,31 @@ let hearts = new Set();
 try { hearts = new Set(JSON.parse(localStorage.getItem(HEARTS) || '[]')); } catch (e) { hearts = new Set(); }
 const sigOf = (i) => `${i.name}|${i.size}|${i.lastModified}`;
 function saveHearts() { try { localStorage.setItem(HEARTS, JSON.stringify([...hearts])); } catch (e) { /* private mode */ } }
+// YOUR OWN ALBUMS (Scott 11/22: "a person can build their own albums for specific pics to go to"): [{ id, name, created, members: [sig] }]
+const ALBUMS = 'photohub.albums';
+let myAlbums = [];
+try { myAlbums = JSON.parse(localStorage.getItem(ALBUMS) || '[]'); } catch (e) { myAlbums = []; }
+function saveAlbums() { try { localStorage.setItem(ALBUMS, JSON.stringify(myAlbums)); } catch (e) { /* private mode */ } }
+export function listMyAlbums() {
+  return myAlbums.map((a) => { const mine = items.filter((i) => a.members.includes(sigOf(i)));
+    return { id: a.id, name: a.name, created: a.created, total: a.members.length, count: mine.length, cover: mine[0] || null }; });
+}
+export function createAlbum(name) {
+  const a = { id: 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: String(name).trim().slice(0, 40) || 'My album', created: Date.now(), members: [] };
+  myAlbums.unshift(a); saveAlbums(); return a.id;
+}
+export function renameAlbum(id, name) { const a = myAlbums.find((x) => x.id === id); if (a && String(name).trim()) { a.name = String(name).trim().slice(0, 40); saveAlbums(); } }
+export function deleteAlbum(id) { myAlbums = myAlbums.filter((x) => x.id !== id); saveAlbums(); }   // the photos themselves are never touched
+export function albumName(id) { const a = myAlbums.find((x) => x.id === id); return a ? a.name : ''; }
+export function albumsWith(item) { const s = sigOf(item); return myAlbums.filter((a) => a.members.includes(s)).map((a) => a.id); }
+/** Puts the photo in the album, or takes it out. Returns true when it is now in. */
+export function toggleInAlbum(id, item) {
+  const a = myAlbums.find((x) => x.id === id); if (!a) return false;
+  const s = sigOf(item), at = a.members.indexOf(s);
+  if (at >= 0) a.members.splice(at, 1); else a.members.push(s);
+  saveAlbums(); return at < 0;
+}
+
 /** Turns the heart on / off. Returns the new state. */
 export function toggleHeart(item) {
   const it = items.find((i) => i.id === item.id) || item;
@@ -83,8 +108,10 @@ export async function addFiles(list) {
   items.sort((a, b) => b.date - a.date);
 }
 
-function filtered({ type = 'all', bucketId = null, favoritesOnly = false } = {}) {
-  return items.filter((i) => (type === 'all' || i.type === type) && (!bucketId || i.bucketId === bucketId) && (!favoritesOnly || i.favorite));
+function filtered({ type = 'all', bucketId = null, favoritesOnly = false, albumId = null } = {}) {
+  const alb = albumId ? myAlbums.find((a) => a.id === albumId) : null;
+  return items.filter((i) => (type === 'all' || i.type === type) && (!bucketId || i.bucketId === bucketId) && (!favoritesOnly || i.favorite)
+    && (!albumId || (alb && alb.members.includes(sigOf(i)))));
 }
 
 export async function listMedia(opts = {}) {

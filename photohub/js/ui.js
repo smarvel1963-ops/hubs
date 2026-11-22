@@ -57,6 +57,23 @@ export const LATER = {
   alerts: { icon: 'bell', title: 'Notifications', text: 'Backup finished, phone space tips and memories.' },
 };
 
+/** A sheet with one text box (album names). Resolves to the text, or null on Cancel. */
+export function askText({ title, label = '', value = '', ok = 'Save' }) {
+  return new Promise((resolve) => {
+    const back = el(`<div class="sheet-backdrop" role="dialog" aria-modal="true"><div class="sheet"><div class="grab"></div>
+      <h2>${esc(title)}</h2>${label ? `<p>${esc(label)}</p>` : ''}<input class="text-in" maxlength="40" value="${esc(value)}" aria-label="${esc(title)}">
+      <div class="actions"><button class="primary-btn" data-ok>${esc(ok)}</button><button class="ghost-btn" data-no>Cancel</button></div></div></div>`);
+    const input = back.querySelector('input');
+    const done = (v) => { back.remove(); resolve(v); };
+    back.querySelector('[data-ok]').addEventListener('click', () => done(input.value.trim() || null));
+    back.querySelector('[data-no]').addEventListener('click', () => done(null));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(input.value.trim() || null); });
+    back.addEventListener('click', (e) => { if (e.target === back) done(null); });
+    document.body.appendChild(back);
+    setTimeout(() => input.focus(), 50);
+  });
+}
+
 export function comingLater(key) {
   const f = LATER[key] || { icon: 'info', title: 'Coming soon', text: '' };
   openSheet({ icon: f.icon, title: f.title, phase: 'Coming in a later phase', body: f.text });

@@ -295,3 +295,14 @@ h1, h2, h3 { margin: 0; }
 /* hearts (11/22): a hearted photo stays on the phone */
 .pill-btn.heart-btn.on { background: rgba(255, 92, 138, 0.28); color: #ffc2d4; }
 .pill-btn.heart-btn svg { width: 16px; height: 16px; }
+
+/* YOUR OWN ALBUMS (11/22) */
+.album-card.new-album .ph { font-size: 40px; font-weight: 300; color: var(--accent); }
+.album-pick { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; max-height: 46vh; overflow: auto; }
+.album-pick button { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); text-align: left; }
+.album-pick .box { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--muted); display: grid; place-items: center; flex: none; }
+.album-pick button.on .box { background: var(--accent); border-color: var(--accent); }
+.album-pick .box svg { width: 16px; height: 16px; }
+.album-pick .nm { flex: 1; font-weight: 700; }
+.album-pick .ct { color: var(--muted); font-size: 13px; }
+.text-in { width: 100%; margin-top: 12px; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--text); font-size: 16px; }
