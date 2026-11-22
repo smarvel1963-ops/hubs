@@ -11,12 +11,28 @@ const files = new Map();        // id -> File
 const thumbs = new Map();       // id -> object URL ('' = could not make one)
 const fulls = new Map();        // id -> object URL
 let nextId = 1;
+// HEARTS (Scott 11/22: "photo on our app should have heart for phone") - a hearted photo stays on the phone. Kept on the phone by
+// the file's name + size + date, so the same photo picked again keeps its heart.
+const HEARTS = 'photohub.hearts';
+let hearts = new Set();
+try { hearts = new Set(JSON.parse(localStorage.getItem(HEARTS) || '[]')); } catch (e) { hearts = new Set(); }
+const sigOf = (i) => `${i.name}|${i.size}|${i.lastModified}`;
+function saveHearts() { try { localStorage.setItem(HEARTS, JSON.stringify([...hearts])); } catch (e) { /* private mode */ } }
+/** Turns the heart on / off. Returns the new state. */
+export function toggleHeart(item) {
+  const it = items.find((i) => i.id === item.id) || item;
+  const s = sigOf(it);
+  if (hearts.has(s)) hearts.delete(s); else hearts.add(s);
+  saveHearts();
+  it.favorite = item.favorite = hearts.has(s);
+  return it.favorite;
+}
 
 export const isWeb = true;
 export function count() { return items.length; }
 
 export async function getAccess() {
-  return { state: items.length ? 'granted' : 'prompt', favoritesSupported: false, web: true };
+  return { state: items.length ? 'granted' : 'prompt', favoritesSupported: true, web: true };
 }
 
 /** Opens the phone's picker (call it straight from a tap). Resolves to the new access once files are picked (or the old on cancel). */
@@ -62,7 +78,7 @@ export async function addFiles(list) {
     files.set(id, f);
     items.push({ id, web: true, type, mime: f.type, name: f.name, size: f.size, lastModified: f.lastModified, date, dateModified: f.lastModified,
       bucketId: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, bucketName: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
-      favorite: false, durationMs: null, width: 0, height: 0 });
+      favorite: hearts.has(sig), durationMs: null, width: 0, height: 0 });
   }
   items.sort((a, b) => b.date - a.date);
 }
@@ -81,7 +97,7 @@ export async function listMedia(opts = {}) {
 export async function getLibrarySummary() {
   const p = items.filter((i) => i.type === 'image'), v = items.filter((i) => i.type === 'video');
   const bytes = (l) => l.reduce((s, i) => s + (i.size || 0), 0);
-  return { photos: { count: p.length, bytes: bytes(p) }, videos: { count: v.length, bytes: bytes(v) }, favorites: null, access: 'web' };
+  return { photos: { count: p.length, bytes: bytes(p) }, videos: { count: v.length, bytes: bytes(v) }, favorites: items.filter((i) => i.favorite).length, access: 'web' };
 }
 
 /** Albums = the months your picked photos were taken in, newest first. */

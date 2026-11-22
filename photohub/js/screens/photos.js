@@ -7,6 +7,7 @@ import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, thumbnailUrl, fullImageUrl } from '../native/media-library.js';
 import { pending as vaultPending } from './vault.js';
+import { toggleHeart } from '../native/web-library.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 
 const PAGE = 120;
@@ -138,7 +139,7 @@ export async function render(root, params, ctx) {
       hasMore = r.hasMore;
       root.querySelector('#count').textContent = `${formatCount(r.total)} ${r.total === 1 ? 'item' : 'items'}`;
       if (offset === 0 && !r.items.length) {
-        list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div><b>Nothing here yet</b>${fav ? 'Heart a photo in your phone\'s gallery and it shows up here.' : 'No photos or videos on this phone match.'}</div>`;
+        list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div><b>Nothing here yet</b>${fav ? (access.web ? 'Open a photo and tap the heart - it stays on your phone.' : 'Heart a photo in your phone\'s gallery and it shows up here.') : 'No photos or videos on this phone match.'}</div>`;
       } else {
         appendItems(r.items);
       }
@@ -186,12 +187,20 @@ function openViewer(item) {
   const when = new Date(item.date);
   const dims = item.width && item.height ? `${item.width} x ${item.height}` : '';
   // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here
-  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${item.web ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}</div>
+  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${item.web ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}</div>
     <div class="stage">${isVideo ? (item.web ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
     <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${item.favorite ? ' &middot; Favorite' : ''}<br>
       ${esc(item.name || '')}<br>${esc([formatBytes(item.size), dims, item.bucketName, isVideo ? formatDuration(item.durationMs) : ''].filter(Boolean).join(' · '))}</div>`;
   v.querySelector('button').addEventListener('click', () => v.remove());
   const tv = v.querySelector('#tovault');
   if (tv) tv.addEventListener('click', () => { vaultPending.item = item; v.remove(); location.hash = '#vault'; });
+  const hb = v.querySelector('#heart');
+  if (hb) hb.addEventListener('click', () => {
+    const on = toggleHeart(item);
+    hb.classList.toggle('on', on);
+    hb.querySelector('span').textContent = on ? 'On your phone' : 'Keep on phone';
+    const cell = document.querySelector(`.cell[data-id="${CSS.escape(item.id)}"]`);
+    if (cell) { cell.querySelector('.fav')?.remove(); if (on) cell.insertAdjacentHTML('beforeend', `<span class="fav">${icons.heart}</span>`); }
+  });
   document.body.appendChild(v);
 }

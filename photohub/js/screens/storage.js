@@ -138,7 +138,7 @@ export async function render(root, params, ctx) {
       if (!alive) return;
       root.querySelector('#phPhotos').textContent = `${formatCount(s.photos.count)} · ${formatBytes(s.photos.bytes)}`;
       root.querySelector('#phVideos').textContent = `${formatCount(s.videos.count)} · ${formatBytes(s.videos.bytes)}`;
-      root.querySelector('#phFav').textContent = s.access === 'web' ? 'In the phone app' : s.favorites === null || s.favorites === undefined ? '-- (Android 11+)' : formatCount(s.favorites);
+      root.querySelector('#phFav').textContent = s.favorites === null || s.favorites === undefined ? '-- (Android 11+)' : formatCount(s.favorites);
       root.querySelector('#libNote').textContent = s.access === 'limited' || s.access === 'web' ? 'Counting only the photos you picked for Photo Hub.' : '';
     }).catch((e) => {
       if (alive) root.querySelector('#libNote').textContent = `Could not read the phone library: ${e.message || e}`;

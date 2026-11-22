@@ -115,7 +115,7 @@ export async function render(root, params, ctx) {
     const set = (k, v) => { const n = root.querySelector(`[data-count="${k}"]`); if (n) n.textContent = v; };
     set('all', `${formatCount(s.photos.count + s.videos.count)} items`);
     set('video', `${formatCount(s.videos.count)} videos`);
-    set('fav', access.web ? 'In the phone app' : s.favorites === null || s.favorites === undefined ? 'Needs Android 11+' : `${formatCount(s.favorites)} photos`);
+    set('fav', s.favorites === null || s.favorites === undefined ? 'Needs Android 11+' : `${formatCount(s.favorites)} ${access.web ? 'on your phone' : 'photos'}`);
   }).catch(() => {});
 
   const frames = [...root.querySelectorAll('.collage .pic')];

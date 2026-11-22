@@ -64,7 +64,7 @@ export async function render(root, params, ctx) {
     const sub = (k, v) => { const n = root.querySelector(`[data-card="${k}"] [data-sub]`); if (n) n.textContent = v; };
     sub('all', `${formatCount(s.photos.count + s.videos.count)} items`);
     sub('video', `${formatCount(s.videos.count)} videos`);
-    sub('fav', ctx.access.web ? 'In the phone app' : s.favorites === null || s.favorites === undefined ? 'Needs Android 11+' : `${formatCount(s.favorites)} items`);
+    sub('fav', s.favorites === null || s.favorites === undefined ? 'Needs Android 11+' : `${formatCount(s.favorites)} items`);
   }).catch(() => {});
   for (const [key, q] of [['all', { type: 'all' }], ['fav', { type: 'all', favoritesOnly: true }], ['video', { type: 'video' }]]) {
     listMedia({ ...q, limit: 1, offset: 0 }).then((r) => r.items[0] && addCover(root.querySelector(`[data-card="${key}"]`), r.items[0])).catch(() => {});

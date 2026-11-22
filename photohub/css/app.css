@@ -291,3 +291,7 @@ h1, h2, h3 { margin: 0; }
 .vault-grid { margin-top: 14px; }
 .vault-grid .cell .ph { display: grid; place-items: center; height: 100%; color: var(--muted); }
 .pill-btn.danger { background: rgba(239, 68, 68, 0.25); color: #ffb4b4; }
+
+/* hearts (11/22): a hearted photo stays on the phone */
+.pill-btn.heart-btn.on { background: rgba(255, 92, 138, 0.28); color: #ffc2d4; }
+.pill-btn.heart-btn svg { width: 16px; height: 16px; }
