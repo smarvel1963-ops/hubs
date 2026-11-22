@@ -2,7 +2,7 @@
 // Photo Hub WEB VERSION (11/22): lets the site open offline and be added to the home screen like the Hubs. Network first (a new copy
 // always wins when online), the saved copy only when offline. Only the app's own files are kept - never a photo (picked photos never
 // leave the page). Registered by index.html only on the website, never inside the Android app.
-const CACHE = 'photohub-web-v4';
+const CACHE = 'photohub-web-v5';
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

@@ -14,7 +14,7 @@ import * as vault from './screens/vault.js';
 import * as gallery from './screens/gallery.js';
 import * as memories from './screens/memories.js';
 
-export const APP_VERSION = '0.1.0 (Phase 1 skeleton)';
+export const APP_VERSION = '0.2.0';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {

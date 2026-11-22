@@ -4,6 +4,7 @@
 // web-library.js answers the same calls from those picked files (never fake photos, nothing uploaded).
 
 import * as web from './web-library.js';
+import * as mine from '../lib/mine.js';
 
 const cap = () => globalThis.Capacitor;
 
@@ -36,12 +37,62 @@ export function canRead(access) {
 /** opts: { offset, limit, type: 'all'|'image'|'video', bucketId, favoritesOnly } */
 export async function listMedia(opts = {}) {
   if (!isNative()) return web.listMedia(opts);
-  return lib().listMedia(opts);
+  const offset = opts.offset || 0, limit = opts.limit || 120;
+  // phone app 0.2.0: your own albums + Favorites (Android's favorites AND Photo Hub hearts) come from kept snapshots
+  if (opts.albumId || opts.favoritesOnly) {
+    let all = opts.albumId ? mine.albumItems(opts.albumId) : await nativeFavorites();
+    if (opts.type && opts.type !== 'all') all = all.filter((i) => i.type === opts.type);
+    const page = all.slice(offset, offset + limit);
+    return { items: page, offset, total: all.length, hasMore: offset + page.length < all.length };
+  }
+  // the phone hands out at most 500 at a time - ask again until the screen has what it asked for
+  const want = { ...opts, favoritesOnly: false };
+  let items = [], at = offset, total = 0, hasMore = true;
+  while (items.length < limit && hasMore) {
+    const r = await lib().listMedia({ ...want, offset: at, limit: Math.min(500, limit - items.length) });
+    const got = r.items || [];
+    items = items.concat(got); total = r.total; hasMore = !!r.hasMore && got.length > 0; at += got.length;
+  }
+  for (const it of items) { it.androidFav = it.favorite === true; it.favorite = it.androidFav || mine.isHearted(it); }
+  return { items, offset, total, hasMore };
+}
+
+/** Phone app: Android's own favorites + photos hearted in Photo Hub, newest first, no doubles. */
+async function nativeFavorites() {
+  const byId = new Map();
+  try {
+    let at = 0, more = true;
+    while (more && at < 5000) {
+      const r = await lib().listMedia({ type: 'all', favoritesOnly: true, offset: at, limit: 500 });
+      for (const it of r.items || []) { it.androidFav = true; it.favorite = true; byId.set(it.id, it); }
+      more = !!r.hasMore && (r.items || []).length > 0; at += (r.items || []).length;
+    }
+  } catch (e) { /* older Android: no favorites flag */ }
+  for (const it of mine.heartedItems()) if (!byId.has(it.id)) byId.set(it.id, { ...it, favorite: true });
+  return [...byId.values()].sort((a, b) => b.date - a.date);
+}
+
+/** Turns a photo's heart on / off (both versions). */
+export function heart(item) { return isNative() ? mine.toggleHeart(item) : web.toggleHeart(item); }
+/** Your own albums with counts + a cover (both versions). */
+export function myAlbums() {
+  if (!isNative()) return web.listMyAlbums();
+  return mine.albumList().map((a) => { const its = mine.albumItems(a.id); return { id: a.id, name: a.name, created: a.created, total: a.members.length, count: its.length, cover: its[0] || null }; });
+}
+/** true when the full-size photo is on hand (phone app: always; web: picked this visit). */
+export function hasFullFile(item) { return isNative() ? true : web.hasFile(item); }
+/** The full photo / video as a File, for the vault. Phone app: read from the phone (never uploaded). */
+export async function fileForVault(item) {
+  if (!isNative()) return web.fileFor(item.id);
+  const blob = await (await fetch(fullImageUrl(item))).blob();
+  return new File([blob], item.name || 'photo', { type: item.mime || blob.type, lastModified: item.dateModified || Date.now() });
 }
 
 export async function getLibrarySummary() {
   if (!isNative()) return web.getLibrarySummary();
-  return lib().getLibrarySummary();
+  const s = await lib().getLibrarySummary();
+  s.favorites = (await nativeFavorites()).length;   // Android's favorites + Photo Hub hearts
+  return s;
 }
 
 export async function listAlbums() {

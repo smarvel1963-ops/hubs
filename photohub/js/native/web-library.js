@@ -43,7 +43,7 @@ function loadRemembered() {
       const id = 'w' + nextId++;
       if (r.thumb) smallBlobs.set(id, r.thumb);
       items.push({ id, web: true, remembered: true, type: r.type, mime: r.mime, name: r.name, size: r.size, lastModified: r.lastModified, date: r.date,
-        dateModified: r.lastModified, bucketId: r.bucketId, bucketName: r.bucketName, favorite: hearts.has(r.sig), durationMs: r.durationMs || null,
+        dateModified: r.lastModified, bucketId: r.bucketId, bucketName: r.bucketName, favorite: mine.heartSig(r.sig), durationMs: r.durationMs || null,
         width: r.width || 0, height: r.height || 0 });
     }
     items.sort((a, b) => b.date - a.date);
@@ -82,46 +82,21 @@ export async function forgetAll() {
   for (const m of [thumbs, fulls]) { for (const u of m.values()) if (u) URL.revokeObjectURL(u); m.clear(); }
   items = []; files.clear(); smallBlobs.clear();
 }
-// HEARTS (Scott 11/22: "photo on our app should have heart for phone") - a hearted photo stays on the phone. Kept on the phone by
-// the file's name + size + date, so the same photo picked again keeps its heart.
-const HEARTS = 'photohub.hearts';
-let hearts = new Set();
-try { hearts = new Set(JSON.parse(localStorage.getItem(HEARTS) || '[]')); } catch (e) { hearts = new Set(); }
+// HEARTS + YOUR OWN ALBUMS (Scott 11/22) live in lib/mine.js now - shared with the phone app. Same keys on the phone as before.
+import * as mine from '../lib/mine.js';
 const sigOf = (i) => `${i.name}|${i.size}|${i.lastModified}`;
-function saveHearts() { try { localStorage.setItem(HEARTS, JSON.stringify([...hearts])); } catch (e) { /* private mode */ } }
-// YOUR OWN ALBUMS (Scott 11/22: "a person can build their own albums for specific pics to go to"): [{ id, name, created, members: [sig] }]
-const ALBUMS = 'photohub.albums';
-let myAlbums = [];
-try { myAlbums = JSON.parse(localStorage.getItem(ALBUMS) || '[]'); } catch (e) { myAlbums = []; }
-function saveAlbums() { try { localStorage.setItem(ALBUMS, JSON.stringify(myAlbums)); } catch (e) { /* private mode */ } }
 export function listMyAlbums() {
-  return myAlbums.map((a) => { const mine = items.filter((i) => a.members.includes(sigOf(i)));
-    return { id: a.id, name: a.name, created: a.created, total: a.members.length, count: mine.length, cover: mine[0] || null }; });
+  return mine.albumList().map((a) => { const m = items.filter((i) => a.members.includes(sigOf(i)));
+    return { id: a.id, name: a.name, created: a.created, total: a.members.length, count: m.length, cover: m[0] || null }; });
 }
-export function createAlbum(name) {
-  const a = { id: 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: String(name).trim().slice(0, 40) || 'My album', created: Date.now(), members: [] };
-  myAlbums.unshift(a); saveAlbums(); return a.id;
-}
-export function renameAlbum(id, name) { const a = myAlbums.find((x) => x.id === id); if (a && String(name).trim()) { a.name = String(name).trim().slice(0, 40); saveAlbums(); } }
-export function deleteAlbum(id) { myAlbums = myAlbums.filter((x) => x.id !== id); saveAlbums(); }   // the photos themselves are never touched
-export function albumName(id) { const a = myAlbums.find((x) => x.id === id); return a ? a.name : ''; }
-export function albumsWith(item) { const s = sigOf(item); return myAlbums.filter((a) => a.members.includes(s)).map((a) => a.id); }
-/** Puts the photo in the album, or takes it out. Returns true when it is now in. */
-export function toggleInAlbum(id, item) {
-  const a = myAlbums.find((x) => x.id === id); if (!a) return false;
-  const s = sigOf(item), at = a.members.indexOf(s);
-  if (at >= 0) a.members.splice(at, 1); else a.members.push(s);
-  saveAlbums(); return at < 0;
-}
-
+export const createAlbum = mine.createAlbum, renameAlbum = mine.renameAlbum, deleteAlbum = mine.deleteAlbum, albumName = mine.albumName,
+  albumsWith = mine.albumsWith, toggleInAlbum = mine.toggleInAlbum;
 /** Turns the heart on / off. Returns the new state. */
 export function toggleHeart(item) {
   const it = items.find((i) => i.id === item.id) || item;
-  const s = sigOf(it);
-  if (hearts.has(s)) hearts.delete(s); else hearts.add(s);
-  saveHearts();
-  it.favorite = item.favorite = hearts.has(s);
-  return it.favorite;
+  const on = mine.toggleHeart(it);
+  item.favorite = it.favorite;
+  return on;
 }
 
 export const isWeb = true;
@@ -178,7 +153,7 @@ export async function addFiles(list) {
     files.set(id, f);
     items.push({ id, web: true, type, mime: f.type, name: f.name, size: f.size, lastModified: f.lastModified, date, dateModified: f.lastModified,
       bucketId: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, bucketName: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
-      favorite: hearts.has(sig), durationMs: null, width: 0, height: 0 });
+      favorite: mine.heartSig(sig), durationMs: null, width: 0, height: 0 });
     added.push(items[items.length - 1]);
   }
   items.sort((a, b) => b.date - a.date);
@@ -186,7 +161,7 @@ export async function addFiles(list) {
 }
 
 function filtered({ type = 'all', bucketId = null, favoritesOnly = false, albumId = null } = {}) {
-  const alb = albumId ? myAlbums.find((a) => a.id === albumId) : null;
+  const alb = albumId ? mine.albumList().find((a) => a.id === albumId) : null;
   return items.filter((i) => (type === 'all' || i.type === type) && (!bucketId || i.bucketId === bucketId) && (!favoritesOnly || i.favorite)
     && (!albumId || (alb && alb.members.includes(sigOf(i)))));
 }

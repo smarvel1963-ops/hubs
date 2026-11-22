@@ -4,8 +4,8 @@
 
 import { icons } from '../icons.js';
 import { esc, comingLater, askForPhotoAccess } from '../ui.js';
-import { canRead, listAlbums, getLibrarySummary, listMedia, thumbnailUrl } from '../native/media-library.js';
-import { listMyAlbums, createAlbum } from '../native/web-library.js';
+import { canRead, listAlbums, getLibrarySummary, listMedia, thumbnailUrl, myAlbums } from '../native/media-library.js';
+import { createAlbum } from '../lib/mine.js';
 import { askText } from '../ui.js';
 import { formatCount } from '../lib/timeline.js';
 
@@ -31,9 +31,9 @@ export async function render(root, params, ctx) {
     ${readable ? '' : `<div class="empty"><div class="ico">${icons.image}</div><b>Your albums show up here</b>
       ${ctx.access.web ? 'Pick photos from your phone and Photo Hub sorts them into albums by month.' : ctx.access.state === 'unavailable' ? 'Open Photo Hub on your Android phone.' : 'Allow photo access to see your phone\'s albums.'}
       ${ctx.access.state === 'unavailable' ? '' : `<button class="primary-btn" id="ask">${ctx.access.web ? 'Pick photos' : 'Allow photo access'}</button>`}</div>`}
-    ${ctx.access.web ? `<div class="section-title">Your albums</div>
+    ${readable ? `<div class="section-title">Your albums</div>
     <div class="album-grid" id="mine"><button class="album-card new-album" id="newAlbum"><span class="ph">+</span><span class="meta"><b>New album</b><span>Make your own</span></span></button>
-      ${listMyAlbums().map((a) => card({ key: `m-${a.id}`, name: a.name, icon: 'image', sub: a.count ? `${formatCount(a.count)} ${a.count === 1 ? 'item' : 'items'}` : (a.total ? `${a.total} saved - pick them to see` : 'Empty'), hash: `#photos?type=all&album=${encodeURIComponent(a.id)}` })).join('')}</div>` : ''}
+      ${myAlbums().map((a) => card({ key: `m-${a.id}`, name: a.name, icon: 'image', sub: a.count ? `${formatCount(a.count)} ${a.count === 1 ? 'item' : 'items'}` : (a.total ? `${a.total} saved - pick them to see` : 'Empty'), hash: `#photos?type=all&album=${encodeURIComponent(a.id)}` })).join('')}</div>` : ''}
     <div class="section-title">${ctx.access.web ? 'Your picks' : 'On this phone'}</div>
     <div class="album-grid" id="top">
       ${card({ key: 'all', name: 'All Photos', icon: 'image', sub: '--', hash: '#photos?type=all&title=All%20Photos' })}
@@ -76,7 +76,7 @@ export async function render(root, params, ctx) {
     sub('video', `${formatCount(s.videos.count)} videos`);
     sub('fav', s.favorites === null || s.favorites === undefined ? 'Needs Android 11+' : `${formatCount(s.favorites)} items`);
   }).catch(() => {});
-  for (const a of (ctx.access.web ? listMyAlbums() : [])) if (a.cover) addCover(root.querySelector(`[data-card="m-${CSS.escape(a.id)}"]`), a.cover);
+  for (const a of myAlbums()) if (a.cover) addCover(root.querySelector(`[data-card="m-${CSS.escape(a.id)}"]`), a.cover);
   for (const [key, q] of [['all', { type: 'all' }], ['fav', { type: 'all', favoritesOnly: true }], ['video', { type: 'video' }]]) {
     listMedia({ ...q, limit: 1, offset: 0 }).then((r) => r.items[0] && addCover(root.querySelector(`[data-card="${key}"]`), r.items[0])).catch(() => {});
   }

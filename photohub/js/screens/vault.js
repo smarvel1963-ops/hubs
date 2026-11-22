@@ -8,7 +8,7 @@
 import { icons } from '../icons.js';
 import { esc, openSheet } from '../ui.js';
 import * as vs from '../lib/vault-store.js';
-import { isWebVersion } from '../native/media-library.js';
+import { isWebVersion, fileForVault } from '../native/media-library.js';
 import * as web from '../native/web-library.js';
 import { formatBytes, formatDayLabel, formatDuration } from '../lib/timeline.js';
 
@@ -87,8 +87,13 @@ export async function render(root, params, ctx) {
     // a photo sent from the Photos viewer goes in first
     if (pending.item) {
       const it = pending.item; pending.item = null;
-      const f = web.fileFor(it.id);
-      if (f) { const t = await web.makeThumbBlob(f); await vs.add(f, t.blob, { date: it.date, durationMs: t.durationMs }); web.removeItem(it.id); }
+      const f = await fileForVault(it).catch(() => null);
+      if (f) {
+        const t = await web.makeThumbBlob(f); await vs.add(f, t.blob, { date: it.date, durationMs: t.durationMs });
+        if (it.web) web.removeItem(it.id);
+        else setTimeout(() => openSheet({ icon: 'lock', title: 'A copy is in your vault',
+          body: 'It is locked with your code now. The original is still in your phone\'s gallery - delete it there if you want it gone from the phone.' }), 300);
+      }
     }
     forget();
     const list = await vs.list();
