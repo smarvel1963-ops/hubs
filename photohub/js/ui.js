@@ -53,6 +53,8 @@ export const LATER = {
   pets: { icon: 'paw', title: 'Pets', text: 'Finds the photos of your pets. Done on your phone, and only if you turn it on.' },
   events: { icon: 'cake', title: 'Events', text: 'Birthdays, holidays and trips, gathered for you.' },
   aiTools: { icon: 'sparkles', title: 'AI Photo Tools', text: 'Organize, clean up, restore and bring old photos back to life.' },
+  trips: { icon: 'plane', title: 'Vacation Trips', text: 'Your trips gathered for you - dates, places, people, photos and videos together.' },
+  tags: { icon: 'tag', title: 'Tags', text: 'Add your own words to photos and find them by tag.' },
   account: { icon: 'user', title: 'Sign in', text: 'Sign in with Google (like Family Hub) so your backup follows you to a new phone.' },
   alerts: { icon: 'bell', title: 'Notifications', text: 'Backup finished, phone space tips and memories.' },
 };

@@ -4,6 +4,13 @@
 const s = (paths, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${paths}</svg>`;
 
 export const icons = {
+  // 11/22 new look
+  plane: s('<path d="M10.5 13.5 3 11l1.5-1.5 8 1 4-4.5a2 2 0 0 1 3 3l-4.5 4 1 8L14.5 22l-2.5-7.5-3.5 3V20l-2 1-1-3-3-1 1-2h2.5z"/>'),
+  calendar: s('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  tag: s('<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.6"/>'),
+  clock: s('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  database: s('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>'),
+  layers: s('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>'),
   menu: s('<path d="M4 7h16M4 12h16M4 17h11"/>'),
   bell: s('<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
   user: s('<circle cx="12" cy="9" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),

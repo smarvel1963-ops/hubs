@@ -7,7 +7,8 @@
 
 import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
-import { canRead, getLibrarySummary } from '../native/media-library.js';
+import { canRead, getLibrarySummary, listMedia, thumbnailUrl } from '../native/media-library.js';
+import * as vs from '../lib/vault-store.js';
 import { getNetwork, onNetworkChange, describeNetwork } from '../native/network.js';
 import { loadSettings, saveSettings } from '../lib/settings.js';
 import { formatBytes, formatCount, usedFraction } from '../lib/timeline.js';
@@ -43,40 +44,44 @@ export async function render(root, params, ctx) {
   await engine.init();
   const target = await engine.checkTarget();
 
-  root.innerHTML = `<div class="screen">
-    <div class="subbar">
-      <button class="icon-btn" id="back" aria-label="Back">${icons.back}</button>
-      <h1>Smart Storage</h1>
-    </div>
+  // 11/22 new look (Scott's "Smart Cloud Storage" design): backup status, storage, device cleanup, favorites kept offline, vault.
+  // Honest numbers only - "Complete" and the cloud meter appear once real backup exists; until then it says it is not set up.
+  root.innerHTML = `<div class="screen cloud2">
+    <div class="subbar"><h1>Cloud</h1></div>
 
-    <section class="card status-card">
-      <div class="big ${target.ready ? 'ok' : ''}">${icons.cloud}</div>
-      <div>
-        <b>${target.ready ? 'Cloud backup is connected' : 'Cloud backup isn\'t connected yet'}</b>
-        <p>${target.ready ? '' : 'Backblaze B2 is not set up yet, so nothing is uploaded. Your photos stay on this phone, exactly as they are.'}</p>
-        <p id="why"></p>
-      </div>
+    <section class="card c2-backup">
+      <div class="c2-orb ${target.ready ? 'ok' : ''}">${icons.cloud}</div>
+      <div class="c2-txt"><b>Backup</b>
+        <span class="c2-pill ${target.ready ? 'ok' : ''}">${target.ready ? `${icons.check} Connected` : 'Not set up yet'}</span>
+        <p>${target.ready ? '' : ctx.access.web ? 'Cloud backup comes with the Photo Hub app and your storage plan. Right now your photos stay on your phone.' : 'Cloud storage is not set up yet, so nothing is uploaded. Your photos stay on this phone, exactly as they are.'}</p>
+        <p id="why"></p></div>
     </section>
 
     <section class="card">
-      <div class="card-head">${icons.cloud}<h2>Storage</h2><span class="badge">Free plan 10 GB</span></div>
-      <div class="meter">
-        <div class="ring">
-          <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" stroke="rgba(255,255,255,0.12)" stroke-width="12" fill="none"/>
-            <circle id="arc" cx="60" cy="60" r="50" stroke="url(#ringGrad)" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="0 400" visibility="hidden"/>
-            <defs><linearGradient id="ringGrad"><stop offset="0" stop-color="#3d8bff"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
-          <div class="center"><b id="cloudUsed">--</b><span>cloud used</span></div>
-        </div>
-        <div class="stats">
-          <div class="stat"><span>Cloud</span><b id="cloudLine">-- of 10 GB</b></div>
-          <div class="stat"><span>Photos on phone</span><b id="phPhotos">--</b></div>
-          <div class="stat"><span>Videos on phone</span><b id="phVideos">--</b></div>
-          <div class="stat"><span>Favorites</span><b id="phFav">--</b></div>
-        </div>
+      <div class="card-head">${icons.database}<h2>Storage</h2><span class="c2-amt" id="cloudLine">Cloud: not set up</span></div>
+      <div class="c2-bar"><i id="cloudBar" style="width:0"></i></div>
+      <div class="stats" style="margin-top:12px">
+          <div class="stat"><span>Photos ${ctx.access.web ? 'picked' : 'on phone'}</span><b id="phPhotos">--</b></div>
+          <div class="stat"><span>Videos ${ctx.access.web ? 'picked' : 'on phone'}</span><b id="phVideos">--</b></div>
+          <div class="stat"><span>Favorites (stay on phone)</span><b id="phFav">--</b></div>
       </div>
       <p class="note" id="libNote">${canRead(ctx.access) ? '' : 'Phone numbers show once you allow photo access.'}</p>
       ${canRead(ctx.access) || ctx.access.state === 'unavailable' ? '' : `<button class="primary-btn" id="ask">${ctx.access.web ? 'Pick photos' : 'Allow photo access'}</button>`}
     </section>
+
+
+
+    <section class="card c2-clean">
+      <span class="c2-ico">${icons.broom}</span><div class="c2-txt"><b>Device Cleanup</b><span>Free up phone space - after backup</span></div>
+      <button class="pill-btn" disabled>Clean Up ${icons.chevron}</button>
+    </section>
+    <p class="note">Clean Up only removes phone copies that have a checked cloud copy - never your favorites, never the vault - and asks you
+      first. "Delete everywhere" is always a separate button.</p>
+
+    <div class="c2-two">
+      <button class="card c2-fav" data-go="#photos?type=all&fav=1&title=Favorites"><span class="c2-ico rose">${icons.heart}</span><b>Favorites</b><span>Saved on your phone</span><span class="c2-pics" id="favPics"></span></button>
+      <button class="card c2-vault" data-go="#vault"><span class="c2-ico violet">${icons.lock}</span><b>Private Vault</b><span id="vaultLine">Locked &amp; private</span><span class="c2-lockart">${icons.lock}</span></button>
+    </div>
 
     <section class="card">
       <div class="card-head">${icons.settings}<h2>Backup settings</h2></div>
@@ -84,13 +89,6 @@ export async function render(root, params, ctx) {
       ${toggle('wifiOnly', 'wifi', 'Backup over Wi-Fi only', 'Never uses your mobile data')}
       ${toggle('keepFavoritesOnDevice', 'heart', 'Keep favorites on this phone', 'Hearted photos are backed up AND always stay on the phone')}
       <div class="row"><span class="ico">${icons.wifi}</span><span class="txt"><b>Right now</b><span id="netLine">${esc(describeNetwork(network))}</span></span></div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">${icons.phone}<h2>Phone space</h2></div>
-      <button class="big-btn" disabled>${icons.broom} Free Up Phone Space</button>
-      <p class="note">Comes after the never-lose-a-photo tests. When it arrives it will only offer photos with a checked
-        cloud copy, never your favorites, and Android will ask you first. "Delete Everywhere" will always be a separate button.</p>
     </section>
   </div>`;
 
@@ -110,7 +108,12 @@ export async function render(root, params, ctx) {
     root.querySelector('#netLine').textContent = `${describeNetwork(network)}${settings.wifiOnly && network.type !== 'wifi' ? ' - backup would wait for Wi-Fi' : ''}`;
   }
 
-  root.querySelector('#back').addEventListener('click', () => (history.length > 1 ? history.back() : ctx.go('#tools')));
+  root.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) ctx.go(b.dataset.go); });
+  vs.hasCode().then((h) => { const n = root.querySelector('#vaultLine'); if (alive && n) n.textContent = h ? 'Locked & private' : 'Set your code'; }).catch(() => {});
+  if (canRead(ctx.access)) listMedia({ type: 'all', favoritesOnly: true, limit: 3, offset: 0 }).then(async (f) => {
+    const box = root.querySelector('#favPics');
+    for (const it of f.items) { const url = await thumbnailUrl(it); if (alive && url && box) box.insertAdjacentHTML('beforeend', `<img alt="" src="${esc(url)}">`); }
+  }).catch(() => {});
   root.addEventListener('change', (e) => {
     const input = e.target.closest('input[data-key]');
     if (!input) return;
@@ -124,13 +127,11 @@ export async function render(root, params, ctx) {
     if (canRead(a)) ctx.rerender();
   });
 
-  // Cloud meter: no cloud yet, so "--" and an empty ring. (usedFraction(null) is null by design.)
+  // Cloud meter: empty until the cloud is real. (usedFraction(null) is null by design.)
   const frac = usedFraction(target.ready ? engine.summary().backedUpBytes : null, FREE_PLAN_BYTES);
   if (frac !== null) {
-    root.querySelector('#arc').setAttribute('stroke-dasharray', `${(frac * 314).toFixed(1)} 400`);
-    root.querySelector('#arc').setAttribute('visibility', 'visible');
-    root.querySelector('#cloudUsed').textContent = `${Math.round(frac * 100)}%`;
-    root.querySelector('#cloudLine').textContent = `${formatBytes(engine.summary().backedUpBytes)} of 10 GB`;
+    root.querySelector('#cloudBar').style.width = `${Math.round(frac * 100)}%`;
+    root.querySelector('#cloudLine').textContent = `${formatBytes(engine.summary().backedUpBytes)} of ${formatBytes(FREE_PLAN_BYTES)}`;
   }
 
   if (canRead(ctx.access)) {

@@ -185,7 +185,7 @@ export async function render(root, params, ctx) {
   };
 }
 
-function openViewer(item) {
+export function openViewer(item) {
   if (!item) return;
   const isVideo = item.type === 'video';
   const v = document.createElement('div');

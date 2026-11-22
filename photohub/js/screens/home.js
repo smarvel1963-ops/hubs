@@ -1,35 +1,22 @@
 // home.js - C:\MarvelApps\photohub\www\js\screens\home.js
-// Home screen after board 4: header, hero, search bar, 8 tiles, Smart Albums row, AI Photo Tools card.
-// Real: Videos tile, Smart Albums tile, Backup & Sync tile, and the All Photos / Favorites / Videos album cards
-// (counts + covers come from the phone once photo access is given; "--" before). Everything else opens the
-// "Coming in a later phase" sheet - no mockup numbers.
+// HOME, new look 11/22 (Scott's design "Home Dashboard" + "your ideas are good"): bright header with your newest photos, then big colorful
+// tiles - Memories, Family Albums, Vacation Trips, Favorites, Private Vault, AI Editing, Cloud Backup. Tiles show YOUR photos once you have
+// picked some (never a vault photo); before that, colors and icons only. No made-up numbers: counts are real, and anything not built yet
+// opens a plain "coming" sheet.
 
 import { icons, logoSvg } from '../icons.js';
 import { esc, comingLater, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, getLibrarySummary, thumbnailUrl } from '../native/media-library.js';
 import { formatCount } from '../lib/timeline.js';
+import { onThisDay } from './memories.js';
 
 const TILES = [
-  { cls: 't-blue', icon: 'image', label: 'Smart<br>Albums', go: '#albums' },
-  { cls: 't-purple', icon: 'copies', label: 'Duplicate<br>Cleanup', later: 'duplicates' },
-  { cls: 't-green', icon: 'wand', label: 'Restore &amp;<br>Enhance', later: 'restore' },
-  { cls: 't-gold', icon: 'play', label: 'Videos<br>Manage', go: '#videos' },
-  { cls: 't-violet', icon: 'lock', label: 'Private<br>Vault', go: '#vault' },   // 11/22: built - opens with your code
-  { cls: 't-pink', icon: 'calHeart', label: 'Memories<br>&amp; Highlights', later: 'memories' },
-  { cls: 't-sky', icon: 'cloudUp', label: 'Backup<br>&amp; Sync', go: '#storage' },
-  { cls: 't-teal', icon: 'share', label: 'Share<br>&amp; Create', later: 'share' },
-];
-
-const REAL_ALBUMS = [
-  { key: 'all', name: 'All Photos', icon: 'image', hash: '#photos?type=all&title=All%20Photos', query: { type: 'all' } },
-  { key: 'fav', name: 'Favorites', icon: 'heart', hash: '#photos?type=all&fav=1&title=Favorites', query: { type: 'all', favoritesOnly: true } },
-  { key: 'video', name: 'Videos', icon: 'play', hash: '#videos', query: { type: 'video' } },
-];
-const LATER_ALBUMS = [
-  { key: 'people', name: 'People', icon: 'people' },
-  { key: 'places', name: 'Places', icon: 'pin' },
-  { key: 'pets', name: 'Pets', icon: 'paw' },
-  { key: 'events', name: 'Events', icon: 'cake' },
+  { key: 'memories', cls: 't-sunset', icon: 'calHeart', label: 'Memories', go: '#memories' },
+  { key: 'family', cls: 't-teal', icon: 'people', label: 'Family Albums', go: '#albums' },
+  { key: 'trips', cls: 't-ocean', icon: 'plane', label: 'Vacation Trips', later: 'trips' },
+  { key: 'fav', cls: 't-rose', icon: 'heart', label: 'Favorites', go: '#photos?type=all&fav=1&title=Favorites' },
+  { key: 'vault', cls: 't-violet', icon: 'lock', label: 'Private Vault', go: '#vault' },
+  { key: 'ai', cls: 't-orange', icon: 'wand', label: 'AI Editing', later: 'restore' },
 ];
 
 export async function render(root, params, ctx) {
@@ -37,29 +24,21 @@ export async function render(root, params, ctx) {
   const access = ctx.access;
   const readable = canRead(access);
 
-  root.innerHTML = `<div class="screen">
-    <header class="topbar">
-      <button class="icon-btn" data-go="#more" aria-label="Menu">${icons.menu}</button>
-      <div class="brand">${logoSvg}<div><div class="name">Photo <b>Hub</b></div><div class="sub">by Marvel Corp</div></div></div>
-      <button class="icon-btn round" data-later="alerts" aria-label="Notifications">${icons.bell}</button>
-      <button class="icon-btn avatar" data-later="account" aria-label="Account">${icons.user}</button>
+  root.innerHTML = `<div class="screen home2">
+    <header class="hero2">
+      <div class="hero2-bg" id="heroBg"></div>
+      <div class="hero2-top">
+        <button class="icon-btn" data-go="#more" aria-label="Menu">${icons.menu}</button>
+        <div class="brand2">${logoSvg}<span>Photo Hub</span></div>
+        <button class="icon-btn" data-later="alerts" aria-label="Notifications">${icons.bell}</button>
+        <button class="icon-btn" data-later="account" aria-label="Account">${icons.user}</button>
+      </div>
+      <div class="hero2-text"><b>Your Photos, Safe &amp; Organized</b>
+        <span class="counts"><span data-count="all">--</span> · <span data-count="video">--</span> · <span data-count="fav">--</span></span></div>
+      <div class="collage">${[0, 1, 2].map(() => `<div class="frame"><div class="pic">${icons.image}</div></div>`).join('')}</div>
     </header>
 
-    <section class="hero">
-      <h1>Your Photos,<br>Safe &amp; Organized</h1>
-      <ul>
-        <li>${icons.check}Favorites stay on your phone</li>
-        <li>${icons.check}Every upload checked</li>
-        <li>${icons.check}Never deletes without you</li>
-      </ul>
-      <div class="collage">${[0, 1, 2].map(() => `<div class="frame"><div class="pic">${icons.image}</div></div>`).join('')}</div>
-    </section>
-
-    <button class="search" data-later="search">${icons.search}<span>Search your photos, people, places, or things...</span>${icons.scan}</button>
-
-    <div class="tiles">
-      ${TILES.map((t, i) => `<button class="tile ${t.cls}" data-i="${i}">${icons[t.icon]}<span>${t.label}</span>${t.later ? '<span class="tag">Later</span>' : ''}</button>`).join('')}
-    </div>
+    <button class="search2" data-go="#gallery">${icons.search}<span>Search your photos...</span></button>
 
     ${readable ? (access.web ? `<button class="row" id="grant">
         <span class="ico">${icons.image}</span>
@@ -69,23 +48,15 @@ export async function render(root, params, ctx) {
         <span class="txt"><b>See your photos here</b><span>${access.web ? 'Pick photos to try it - they stay on your phone.' : access.state === 'unavailable' ? 'Open Photo Hub on your Android phone to see your photos.' : 'Allow photo access - Photo Hub only reads them.'}</span></span>
         ${icons.chevron}</button>`}
 
-    <section class="card">
-      <div class="card-head">${icons.image}<h2>Smart Albums</h2><button class="link" data-go="#albums">See All ${icons.chevron}</button></div>
-      <div class="album-row">
-        ${REAL_ALBUMS.map((a) => `<button class="album-card" data-album="${a.key}" data-go="${a.hash}">
-            <span class="ph">${icons[a.icon]}</span>
-            <span class="meta"><b>${esc(a.name)}</b><span data-count="${a.key}">--</span></span></button>`).join('')}
-        ${LATER_ALBUMS.map((a) => `<button class="album-card later" data-later="${a.key}">
-            <span class="ph">${icons[a.icon]}</span>
-            <span class="meta"><b>${esc(a.name)}</b><span>Later phase</span></span></button>`).join('')}
-      </div>
-    </section>
+    <div id="memStrip"></div>
 
-    <section class="card ai-card">
-      <div class="ai-badge">AI</div>
-      <div class="txt"><b>AI Photo Tools</b><p>Organize, clean up, restore, and bring old photos to life.</p></div>
-      <button class="pill-btn" data-go="#tools">Explore Tools ${icons.chevron}</button>
-    </section>
+    <div class="tiles2">
+      ${TILES.map((t) => `<button class="tile2 ${t.cls}" data-tile="${t.key}" ${t.go ? `data-go="${esc(t.go)}"` : `data-later="${t.later}"`}>
+          <span class="t2-ico">${icons[t.icon]}</span><span class="t2-lbl">${esc(t.label)}</span>
+          ${t.later ? '<span class="t2-soon">Coming</span>' : ''}<span class="t2-pic"></span></button>`).join('')}
+      <button class="tile2 wide t-green" data-tile="cloud" data-go="#storage">
+        <span class="t2-ico">${icons.cloudUp}</span><span class="t2-lbl">Cloud Backup</span><span class="t2-sub">Coming with your plan</span><span class="t2-pics" id="cloudPics"></span></button>
+    </div>
   </div>`;
 
   root.addEventListener('click', async (e) => {
@@ -98,41 +69,63 @@ export async function render(root, params, ctx) {
       if (canRead(a)) ctx.rerender();
       return;
     }
-    if (t.dataset.i !== undefined) {
-      const tile = TILES[Number(t.dataset.i)];
-      if (tile.go) ctx.go(tile.go); else comingLater(tile.later);
-      return;
-    }
     if (t.dataset.later) { comingLater(t.dataset.later); return; }
     if (t.dataset.go) ctx.go(t.dataset.go);
   });
 
   if (!readable) return () => { alive = false; };
 
-  // Real numbers + covers from the phone.
+  const setPic = async (sel, item, cls = '') => {
+    if (!item) return;
+    const url = await thumbnailUrl(item);
+    const el = root.querySelector(sel);
+    if (alive && url && el) el.innerHTML = `<img alt="" class="${cls}" src="${esc(url)}">`;
+  };
+
   getLibrarySummary().then((s) => {
     if (!alive) return;
     const set = (k, v) => { const n = root.querySelector(`[data-count="${k}"]`); if (n) n.textContent = v; };
     set('all', `${formatCount(s.photos.count + s.videos.count)} items`);
     set('video', `${formatCount(s.videos.count)} videos`);
-    set('fav', s.favorites === null || s.favorites === undefined ? 'Needs Android 11+' : `${formatCount(s.favorites)} ${access.web ? 'on your phone' : 'photos'}`);
+    set('fav', s.favorites === null || s.favorites === undefined ? 'Favorites: Android 11+' : `${formatCount(s.favorites)} on your phone`);
   }).catch(() => {});
 
+  // newest photos: the header + the collage + the Cloud tile; older ones for Memories / AI Editing; hearts for Favorites
+  const r = await listMedia({ type: 'image', limit: 60, offset: 0 }).catch(() => ({ items: [] }));
+  if (!alive) return null;
+  const imgs = r.items || [];
   const frames = [...root.querySelectorAll('.collage .pic')];
-  listMedia({ type: 'image', limit: 3, offset: 0 }).then(async (r) => {
-    for (let i = 0; i < r.items.length && i < frames.length; i++) {
-      const url = await thumbnailUrl(r.items[i]);
-      if (alive && url) frames[i].innerHTML = `<img alt="" src="${esc(url)}">`;
-    }
-  }).catch(() => {});
+  for (let i = 0; i < 3 && i < imgs.length; i++) {
+    const url = await thumbnailUrl(imgs[i]);
+    if (alive && url) frames[i].innerHTML = `<img alt="" src="${esc(url)}">`;
+  }
+  if (imgs[0]) {
+    const url = await thumbnailUrl(imgs[0]);
+    const bg = root.querySelector('#heroBg');
+    if (alive && url && bg) bg.style.backgroundImage = `url("${url}")`;
+  }
+  setPic('[data-tile="memories"] .t2-pic', imgs[imgs.length - 1]);
+  setPic('[data-tile="family"] .t2-pic', imgs[1] || imgs[0]);
+  setPic('[data-tile="ai"] .t2-pic', imgs[Math.min(2, imgs.length - 1)], 'sepia');
+  listMedia({ type: 'all', favoritesOnly: true, limit: 1, offset: 0 }).then((f) => setPic('[data-tile="fav"] .t2-pic', f.items[0])).catch(() => {});
+  const cp = root.querySelector('#cloudPics');
+  for (const it of imgs.slice(0, 3)) {
+    const url = await thumbnailUrl(it);
+    if (alive && url && cp) cp.insertAdjacentHTML('beforeend', `<img alt="" src="${esc(url)}">`);
+  }
 
-  for (const a of REAL_ALBUMS) {
-    listMedia({ ...a.query, limit: 1, offset: 0 }).then(async (r) => {
-      if (!alive || !r.items.length) return;
-      const url = await thumbnailUrl(r.items[0]);
-      const card = root.querySelector(`[data-album="${a.key}"]`);
-      if (alive && url && card) card.insertAdjacentHTML('afterbegin', `<img alt="" src="${esc(url)}">`);
-    }).catch(() => {});
+  // On this day (Scott 11/22: "one drive brings up memories on certain dates each day like 1 year 5 years")
+  const mem = await onThisDay().catch(() => []);
+  if (alive && mem.length) {
+    const g = mem[0];
+    const strip = root.querySelector('#memStrip');
+    strip.innerHTML = `<button class="mem-strip" data-go="#memories"><span class="mem-k">${icons.calHeart} On this day</span>
+      <b>${esc(g.label)}</b><span class="mem-pics"></span>${icons.chevron}</button>`;
+    const pics = strip.querySelector('.mem-pics');
+    for (const it of g.items.slice(0, 4)) {
+      const url = await thumbnailUrl(it);
+      if (alive && url) pics.insertAdjacentHTML('beforeend', `<img alt="" src="${esc(url)}">`);
+    }
   }
 
   return () => { alive = false; };

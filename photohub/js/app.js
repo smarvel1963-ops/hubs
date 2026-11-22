@@ -11,25 +11,30 @@ import * as tools from './screens/tools.js';
 import * as storage from './screens/storage.js';
 import * as more from './screens/more.js';
 import * as vault from './screens/vault.js';
+import * as gallery from './screens/gallery.js';
+import * as memories from './screens/memories.js';
 
 export const APP_VERSION = '0.1.0 (Phase 1 skeleton)';
 
+// 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
   home: { mod: home, tab: 'home' },
+  gallery: { mod: gallery, tab: 'gallery' },
+  memories: { mod: memories, tab: 'home' },
   albums: { mod: albums, tab: 'albums' },
-  photos: { mod: photos, tab: 'albums' },
-  videos: { mod: photos, tab: 'videos', params: { type: 'video', title: 'Videos' } },
-  tools: { mod: tools, tab: 'tools' },
-  storage: { mod: storage, tab: 'tools' },
+  photos: { mod: photos, tab: 'gallery' },
+  videos: { mod: photos, tab: 'gallery', params: { type: 'video', title: 'Videos' } },
+  tools: { mod: tools, tab: 'more' },
+  storage: { mod: storage, tab: 'cloud' },
   more: { mod: more, tab: 'more' },
   vault: { mod: vault, tab: 'home' },   // Private Vault (11/22) - opens only with the code
 };
 
 const TABS = [
   { id: 'home', label: 'Home', icon: 'home', hash: '#home' },
-  { id: 'albums', label: 'Albums', icon: 'image', hash: '#albums' },
-  { id: 'tools', label: 'Tools', icon: 'wand', hash: '#tools' },
-  { id: 'videos', label: 'Videos', icon: 'play', hash: '#videos' },
+  { id: 'gallery', label: 'Gallery', icon: 'image', hash: '#gallery' },
+  { id: 'albums', label: 'Albums', icon: 'layers', hash: '#albums' },
+  { id: 'cloud', label: 'Cloud', icon: 'cloud', hash: '#storage' },
   { id: 'more', label: 'More', icon: 'grid', hash: '#more' },
 ];
 
@@ -73,7 +78,7 @@ async function render() {
   app.appendChild(view);
   document.querySelectorAll('.viewer, .sheet-backdrop').forEach((n) => n.remove());
   window.scrollTo(0, 0);
-  const tab = name === 'photos' && params.type === 'video' ? 'videos' : route.tab;
+  const tab = route.tab;
   renderNav(tab);
   const my = ++state.renderId;
   const cleanup = (await route.mod.render(view, { ...(route.params || {}), ...params }, ctx)) || null;
