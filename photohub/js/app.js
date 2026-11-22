@@ -13,8 +13,9 @@ import * as more from './screens/more.js';
 import * as vault from './screens/vault.js';
 import * as gallery from './screens/gallery.js';
 import * as memories from './screens/memories.js';
+import * as runner from './backup/runner.js';
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
@@ -101,6 +102,9 @@ async function start() {
   });
   await ctx.refreshAccess();
   render();
+  // 11/22 cloud backup: keeps going while Photo Hub is open (Auto Backup on + signed in); picked photos on the web version too
+  window.addEventListener('photohub:picked', () => runner.kick());
+  runner.start().catch(() => {});
 }
 
 start();

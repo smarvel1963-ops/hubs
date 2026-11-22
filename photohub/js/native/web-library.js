@@ -158,6 +158,8 @@ export async function addFiles(list) {
   }
   items.sort((a, b) => b.date - a.date);
   if (added.length) rememberNew(added);   // small copies saved in the background
+  // 11/22 cloud: tell the backup runner new full-size photos are here (it backs them up when Auto Backup is on)
+  try { globalThis.dispatchEvent(new Event('photohub:picked')); } catch (e) { /* no window (tests) */ }
 }
 
 function filtered({ type = 'all', bucketId = null, favoritesOnly = false, albumId = null } = {}) {

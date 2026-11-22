@@ -1,9 +1,10 @@
 // storage.js - C:\MarvelApps\photohub\www\js\screens\storage.js
-// SMART STORAGE (plan section 4): backup on/off, Wi-Fi only, keep favorites on this phone, storage meter.
-// Real: the three switches (saved on the phone), the connection (Wi-Fi / mobile data), the phone library numbers
-// (after photo access), and the backup engine's own answer - which today is "Backblaze B2 is not set up yet".
-// Placeholder: cloud usage shows "--" (no cloud yet). "Free Up Phone Space" is a disabled button - it comes
-// after the never-lose-a-photo tests. Nothing on this screen can delete anything.
+// CLOUD (plan section 4 + 19): Google sign-in, Auto Backup, Wi-Fi only, keep favorites on this phone, storage numbers.
+// 11/22 cloud is REAL (Scott: "Yes, build it"): backups go to Photo Hub's service on Cloudflare -> Backblaze B2 (US East), each person in
+// their own folder. Every number here is real: the backup engine's own counts and what the cloud says it holds. Nothing on this screen
+// deletes anything - "Clean Up" stays disabled until the never-lose-a-photo checks are done.
+//   Phone app: Auto Backup reads the phone library and backs up what is not in the cloud yet, while Photo Hub is open.
+//   Web version (PC / iPhone / Android browser): backs up the photos picked this visit (automatically, or "Back up now").
 
 import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
@@ -12,66 +13,43 @@ import * as vs from '../lib/vault-store.js';
 import { rememberedStats, forgetAll } from '../native/web-library.js';
 import { getNetwork, onNetworkChange, describeNetwork } from '../native/network.js';
 import { loadSettings, saveSettings } from '../lib/settings.js';
-import { formatBytes, formatCount, usedFraction } from '../lib/timeline.js';
-import { BackupEngine, SKIP } from '../backup/backup-engine.js';
-import { B2Target } from '../backup/b2-target.js';
-import { LocalStorageStateStore } from '../backup/state-store.js';
-
-const FREE_PLAN_BYTES = 10 * 1024 ** 3; // plan section 10: free plan 10 GB, photos only
-
-const phoneSource = {
-  async read() {
-    throw new Error('Reading full photos for upload comes with the cloud step');
-  },
-};
-
-const SKIP_TEXT = {
-  [SKIP.BACKUP_OFF]: 'Auto Backup is off.',
-  [SKIP.OFFLINE]: 'The phone is offline - backup waits.',
-  [SKIP.WAITING_FOR_WIFI]: 'On mobile data - backup waits for Wi-Fi.',
-};
+import { formatBytes, formatCount } from '../lib/timeline.js';
+import * as account from '../lib/account.js';
+import * as runner from '../backup/runner.js';
 
 export async function render(root, params, ctx) {
   let alive = true;
   let settings = loadSettings();
   let network = await getNetwork();
-  const engine = new BackupEngine({
-    source: phoneSource,
-    target: new B2Target(),
-    store: new LocalStorageStateStore(),
-    getSettings: () => settings,
-    getNetwork: () => network,
-  });
-  await engine.init();
-  const target = await engine.checkTarget();
+  const web = !!ctx.access.web || !(globalThis.Capacitor && globalThis.Capacitor.isNativePlatform && globalThis.Capacitor.isNativePlatform());
+  await account.init();
 
-  // 11/22 new look (Scott's "Smart Cloud Storage" design): backup status, storage, device cleanup, favorites kept offline, vault.
-  // Honest numbers only - "Complete" and the cloud meter appear once real backup exists; until then it says it is not set up.
   root.innerHTML = `<div class="screen cloud2">
     <div class="subbar"><h1>Cloud</h1></div>
 
     <section class="card c2-backup">
-      <div class="c2-orb ${target.ready ? 'ok' : ''}">${icons.cloud}</div>
+      <div class="c2-orb" id="orb">${icons.cloud}</div>
       <div class="c2-txt"><b>Backup</b>
-        <span class="c2-pill ${target.ready ? 'ok' : ''}">${target.ready ? `${icons.check} Connected` : 'Not set up yet'}</span>
-        <p>${target.ready ? '' : ctx.access.web ? 'Cloud backup comes with the Photo Hub app and your storage plan. Right now your photos stay on your phone.' : 'Cloud storage is not set up yet, so nothing is uploaded. Your photos stay on this phone, exactly as they are.'}</p>
-        <p id="why"></p></div>
+        <span class="c2-pill" id="pill">Not set up yet</span>
+        <p id="why"></p>
+        <div class="c2-acct" id="acct"></div>
+        ${web ? `<button class="primary-btn" id="now" hidden>${icons.cloudUp || icons.cloud} Back up now</button>` : ''}
+        <p class="note" id="extra"></p></div>
     </section>
+    ${web ? `<p class="note">On an iPhone or any phone's browser: tap <b>Pick photos</b>, choose your photos (on iPhone you can drag
+      across them to choose many), then <b>Back up now</b>. The Photo Hub app backs up the whole phone by itself.</p>` : ''}
 
     <section class="card">
-      <div class="card-head">${icons.database}<h2>Storage</h2><span class="c2-amt" id="cloudLine">Cloud: not set up</span></div>
-      <div class="c2-bar"><i id="cloudBar" style="width:0"></i></div>
+      <div class="card-head">${icons.database}<h2>Storage</h2><span class="c2-amt" id="cloudLine">Cloud: not signed in</span></div>
       <div class="stats" style="margin-top:12px">
-          <div class="stat"><span>Photos ${ctx.access.web ? 'picked' : 'on phone'}</span><b id="phPhotos">--</b></div>
-          <div class="stat"><span>Videos ${ctx.access.web ? 'picked' : 'on phone'}</span><b id="phVideos">--</b></div>
+          <div class="stat"><span>Photos ${web ? 'picked' : 'on phone'}</span><b id="phPhotos">--</b></div>
+          <div class="stat"><span>Videos ${web ? 'picked' : 'on phone'}</span><b id="phVideos">--</b></div>
           <div class="stat"><span>Favorites (stay on phone)</span><b id="phFav">--</b></div>
       </div>
-      ${ctx.access.web ? '<p class="note" id="remLine"></p><button class="ghost-btn" id="forget" hidden>Forget my photos</button>' : ''}
+      ${web ? '<p class="note" id="remLine"></p><button class="ghost-btn" id="forget" hidden>Forget my photos</button>' : ''}
       <p class="note" id="libNote">${canRead(ctx.access) ? '' : 'Phone numbers show once you allow photo access.'}</p>
-      ${canRead(ctx.access) || ctx.access.state === 'unavailable' ? '' : `<button class="primary-btn" id="ask">${ctx.access.web ? 'Pick photos' : 'Allow photo access'}</button>`}
+      ${canRead(ctx.access) || ctx.access.state === 'unavailable' ? '' : `<button class="primary-btn" id="ask">${web ? 'Pick photos' : 'Allow photo access'}</button>`}
     </section>
-
-
 
     <section class="card c2-clean">
       <span class="c2-ico">${icons.broom}</span><div class="c2-txt"><b>Device Cleanup</b><span>Free up phone space - after backup</span></div>
@@ -87,36 +65,94 @@ export async function render(root, params, ctx) {
 
     <section class="card">
       <div class="card-head">${icons.settings}<h2>Backup settings</h2></div>
-      ${toggle('backupEnabled', 'cloudUp', 'Auto Backup', 'Back up new photos and videos once the cloud is set up')}
-      ${toggle('wifiOnly', 'wifi', 'Backup over Wi-Fi only', 'Never uses your mobile data')}
+      ${toggle('backupEnabled', 'cloudUp', 'Auto Backup', web ? 'Backs up the photos you pick, as soon as you pick them' : 'Backs up new photos and videos while Photo Hub is open')}
+      ${web ? '' : toggle('wifiOnly', 'wifi', 'Backup over Wi-Fi only', 'Never uses your mobile data')}
       ${toggle('keepFavoritesOnDevice', 'heart', 'Keep favorites on this phone', 'Hearted photos are backed up AND always stay on the phone')}
       <div class="row"><span class="ico">${icons.wifi}</span><span class="txt"><b>Right now</b><span id="netLine">${esc(describeNetwork(network))}</span></span></div>
     </section>
+    <p class="note">Your backups go to Photo Hub's own cloud storage in the USA (Virginia), in a folder only your sign-in can open. Deleted
+      backups are kept 30 days in case of a mistake, then removed.</p>
   </div>`;
 
   function toggle(key, icon, title, sub) {
-    return `<label class="row"><span class="ico">${icons[icon]}</span><span class="txt"><b>${esc(title)}</b><span>${esc(sub)}</span></span>
+    return `<label class="row"><span class="ico">${icons[icon] || icons.cloud}</span><span class="txt"><b>${esc(title)}</b><span>${esc(sub)}</span></span>
       <span class="switch"><input type="checkbox" data-key="${key}" ${settings[key] ? 'checked' : ''}><i></i></span></label>`;
   }
 
-  function refreshWhy() {
-    const why = engine.whyNotRunning();
-    const s = engine.summary();
-    let text;
-    if (!target.ready) text = settings.backupEnabled ? 'Auto Backup is on and will start once the cloud is set up.' : 'Auto Backup is off.';
-    else text = why ? SKIP_TEXT[why] || why : 'Backup can run now.';
-    if (s.total) text += ` Backup list: ${formatCount(s.backedUp)} backed up, ${formatCount(s.queued + s.failed)} waiting.`;
-    root.querySelector('#why').textContent = text;
-    root.querySelector('#netLine').textContent = `${describeNetwork(network)}${settings.wifiOnly && network.type !== 'wifi' ? ' - backup would wait for Wi-Fi' : ''}`;
+  // ---------- backup card: sign-in + live status ----------
+  function statusText(s) {
+    const sum = s.summary || { total: 0, backedUp: 0, queued: 0, failed: 0, needsAttention: 0, uploading: 0 };
+    const left = sum.queued + sum.failed + sum.uploading;
+    switch (s.phase) {
+      case 'off': return web ? 'Auto Backup is off - tap Back up now, or turn Auto Backup on below.' : 'Auto Backup is off. Turn it on below to back up this phone.';
+      case 'no_signin': return 'Sign-in comes with the next Photo Hub app update. Your photos stay on this phone until then.';
+      case 'signed_out': return 'Sign in with Google to back up your photos.';
+      case 'waiting': return s.reason === 'waiting_for_wifi' ? 'On mobile data - backup waits for Wi-Fi.' : 'Offline - backup waits for a connection.';
+      case 'not_allowed': return s.reason || 'Cloud backup is not open to this account yet.';
+      case 'unreachable': return 'Could not reach the cloud right now - Photo Hub will try again.';
+      case 'scanning': return 'Checking which photos still need a backup...';
+      case 'uploading': return `Backing up... ${formatCount(sum.backedUp)} of ${formatCount(sum.total)} done.`;
+      case 'done':
+        if (!sum.total) return web ? 'Pick photos to back them up.' : 'Nothing to back up yet.';
+        if (!left) return `All ${formatCount(sum.backedUp)} ${web ? 'picked ' : ''}photos are backed up and checked.`;
+        return `${formatCount(sum.backedUp)} backed up and checked. ${formatCount(left)} will be tried again${sum.needsAttention ? ` (${formatCount(sum.needsAttention)} need a look)` : ''}.`;
+      default: return settings.backupEnabled ? 'Starting backup...' : '';
+    }
   }
 
-  root.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) ctx.go(b.dataset.go); });
+  function paint(s = runner.status()) {
+    if (!alive) return;
+    const u = account.current();
+    const okPhases = ['scanning', 'uploading', 'done', 'waiting'];
+    const connected = !!u && okPhases.includes(s.phase);
+    root.querySelector('#orb').classList.toggle('ok', connected);
+    const pill = root.querySelector('#pill');
+    pill.classList.toggle('ok', connected);
+    pill.innerHTML = connected ? `${icons.check} Connected` : u ? 'Signed in' : 'Not set up yet';
+    root.querySelector('#why').textContent = statusText(s);
+    const acct = root.querySelector('#acct');
+    if (!account.available()) acct.innerHTML = '';
+    else if (u) acct.innerHTML = `<span class="note">Signed in as <b>${esc(u.email || u.name || 'you')}</b></span> <button class="ghost-btn" id="out">Sign out</button>`;
+    else acct.innerHTML = `<button class="primary-btn" id="in">Sign in with Google</button>`;
+    const extra = [];
+    if (s.tooBig) extra.push(`${formatCount(s.tooBig)} video${s.tooBig === 1 ? '' : 's'} over 95 MB wait for a later update.`);
+    if (!web && settings.backupEnabled && u) extra.push('Backs up while Photo Hub is open.');
+    root.querySelector('#extra').textContent = extra.join(' ');
+    const now = root.querySelector('#now');
+    if (now) { now.hidden = !u; now.disabled = s.phase === 'uploading' || s.phase === 'scanning'; }
+    const line = root.querySelector('#cloudLine');
+    if (s.me && u) line.textContent = `Cloud: ${formatCount(s.me.photos)} photo${s.me.photos === 1 ? '' : 's'} · ${formatBytes(s.me.bytes)}`;
+    else line.textContent = u ? 'Cloud: checking...' : 'Cloud: not signed in';
+    root.querySelector('#netLine').textContent = `${describeNetwork(network)}${!web && settings.wifiOnly && network.type !== 'wifi' ? ' - backup waits for Wi-Fi' : ''}`;
+  }
+
+  root.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-go]');
+    if (b) { ctx.go(b.dataset.go); return; }
+    if (e.target.closest('#in')) {
+      const btn = e.target.closest('#in');
+      btn.disabled = true;
+      try { await account.signIn(); runner.kick(); } catch (err) { root.querySelector('#why').textContent = err.message || String(err); }
+      btn.disabled = false;
+      paint();
+      return;
+    }
+    if (e.target.closest('#out')) {
+      if (!confirm('Sign out of cloud backup on this ' + (web ? 'browser' : 'phone') + '? Nothing is deleted - your backups stay in the cloud.')) return;
+      await account.signOut();
+      runner.reset();
+      paint();
+      return;
+    }
+    if (e.target.closest('#now')) { runner.kick({ now: true }); paint(); }
+  });
+
   // 11/22 remembered picks: how many small copies this phone keeps, and Forget my photos
-  if (ctx.access.web) rememberedStats().then((r) => {
+  if (web) rememberedStats().then((r) => {
     const line = root.querySelector('#remLine'), btn = root.querySelector('#forget');
     if (!alive || !line) return;
     line.textContent = r.count ? `Remembered on this phone: ${formatCount(r.count)} small ${r.count === 1 ? 'copy' : 'copies'} · ${formatBytes(r.bytes)}. Full size comes back when you pick a photo again.` : 'Photos you pick are remembered here as small copies, so they are waiting next time.';
-    if (r.count) { btn.hidden = false; btn.onclick = async () => { if (!confirm('Forget the photos Photo Hub remembers on this phone? Your hearts, albums and vault stay.')) return; await forgetAll(); ctx.setAccess(await ctx.refreshAccess()); ctx.rerender(); }; }
+    if (r.count) { btn.hidden = false; btn.onclick = async () => { if (!confirm('Forget the photos Photo Hub remembers on this phone? Your hearts, albums, vault and cloud backups stay.')) return; await forgetAll(); ctx.setAccess(await ctx.refreshAccess()); ctx.rerender(); }; }
   }).catch(() => {});
   vs.hasCode().then((h) => { const n = root.querySelector('#vaultLine'); if (alive && n) n.textContent = h ? 'Locked & private' : 'Set your code'; }).catch(() => {});
   if (canRead(ctx.access)) listMedia({ type: 'all', favoritesOnly: true, limit: 3, offset: 0 }).then(async (f) => {
@@ -127,21 +163,15 @@ export async function render(root, params, ctx) {
     const input = e.target.closest('input[data-key]');
     if (!input) return;
     settings = saveSettings({ [input.dataset.key]: input.checked });
-    refreshWhy();
+    if (input.dataset.key === 'backupEnabled' || input.dataset.key === 'wifiOnly') runner.kick();
+    paint();
   });
   const ask = root.querySelector('#ask');
   if (ask) ask.addEventListener('click', async () => {
     const a = await askForPhotoAccess(ctx.access);
     ctx.setAccess(a);
-    if (canRead(a)) ctx.rerender();
+    if (canRead(a)) { runner.kick(); ctx.rerender(); }
   });
-
-  // Cloud meter: empty until the cloud is real. (usedFraction(null) is null by design.)
-  const frac = usedFraction(target.ready ? engine.summary().backedUpBytes : null, FREE_PLAN_BYTES);
-  if (frac !== null) {
-    root.querySelector('#cloudBar').style.width = `${Math.round(frac * 100)}%`;
-    root.querySelector('#cloudLine').textContent = `${formatBytes(engine.summary().backedUpBytes)} of ${formatBytes(FREE_PLAN_BYTES)}`;
-  }
 
   if (canRead(ctx.access)) {
     getLibrarySummary().then((s) => {
@@ -155,7 +185,10 @@ export async function render(root, params, ctx) {
     });
   }
 
-  refreshWhy();
-  const stopNet = await onNetworkChange((n) => { network = n; if (alive) refreshWhy(); });
-  return () => { alive = false; stopNet(); };
+  paint();
+  const stopStatus = runner.onStatus(paint);
+  const stopAcct = account.onChange(() => paint());
+  const stopNet = await onNetworkChange((n) => { network = n; paint(); });
+  runner.kick();
+  return () => { alive = false; stopStatus(); stopAcct(); stopNet(); };
 }

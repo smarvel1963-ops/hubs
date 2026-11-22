@@ -390,7 +390,8 @@ export class BackupEngine {
       let remote = await this._target.head(key);
       let uploaded = false;
       if (!matches(remote, size, sha256)) {
-        await this._target.put(key, bytes, { sha256, size, contentType: rec.photo.mime || 'application/octet-stream' });
+        // date + name ride along so the cloud copy keeps when it was taken and what it was called (11/22)
+        await this._target.put(key, bytes, { sha256, size, contentType: rec.photo.mime || 'application/octet-stream', date: rec.photo.date, name: rec.photo.name });
         uploaded = true;
         rec.uploads += 1;
         remote = await this._target.head(key); // VERIFY - never trust put() on its own

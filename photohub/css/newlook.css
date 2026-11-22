@@ -159,3 +159,8 @@ body { background: linear-gradient(180deg, #e7eeff 0%, #f6f4ff 45%, #f3f6ff 100%
 
 /* remembered picks (11/22): a small copy shown until the photo is picked again */
 .small-note { margin: 0 12px 8px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.12); color: #e6e9ff; font-size: 12.5px; text-align: center; }
+
+/* 11/22 cloud sign-in row on the Cloud page */
+.c2-acct{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 4px}
+.c2-acct .ghost-btn{padding:4px 10px}
+#now{margin-top:6px}

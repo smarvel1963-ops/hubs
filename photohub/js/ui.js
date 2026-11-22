@@ -95,7 +95,7 @@ export function askForPhotoAccess(current) {
         body: 'Photo Hub shows the photos and videos you pick, newest first, grouped by day and by month.',
         list: [
           'Pick as many as you like - "Select all" works.',
-          'They stay on your phone. Nothing is uploaded and nothing is changed.',
+          'They stay on your phone and nothing is changed. Nothing is uploaded unless you sign in and back them up on the Cloud page.',
           'This web version forgets them when you close it - pick again next time.',
           'The phone app reads your whole library and backs it up - coming to Google Play.',
         ],
