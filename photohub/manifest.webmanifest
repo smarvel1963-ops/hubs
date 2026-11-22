@@ -1,0 +1,15 @@
+{
+  "name": "Photo Hub by Marvel Corp",
+  "short_name": "Photo Hub",
+  "description": "Your photos and videos, organized - by day and by month. They stay on your phone.",
+  "start_url": "./#home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#071233",
+  "theme_color": "#071233",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
