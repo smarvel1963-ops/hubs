@@ -149,6 +149,27 @@ function videoThumb(item, f) {
   });
 }
 
+// ---------- for the Private Vault (vault.js) ----------
+export function fileFor(id) { return files.get(id) || null; }
+
+/** Takes a picked item out of the web list (it went into the vault). */
+export function removeItem(id) {
+  items = items.filter((i) => i.id !== id);
+  files.delete(id);
+  for (const m of [thumbs, fulls]) { const u = m.get(id); if (u) URL.revokeObjectURL(u); m.delete(id); }
+}
+
+/** A small JPEG Blob of any photo / video File (for the vault's grid), + a video's length. */
+export async function makeThumbBlob(file) {
+  const item = { type: /^video\//.test(file.type) ? 'video' : 'image' };
+  let url = '';
+  try { url = item.type === 'video' ? await videoThumb(item, file) : await imageThumb(item, file); } catch (e) { url = ''; }
+  if (!url) return { blob: null, durationMs: item.durationMs || null };
+  const blob = await (await fetch(url)).blob();
+  URL.revokeObjectURL(url);
+  return { blob, durationMs: item.durationMs || null };
+}
+
 /** The JPEG's own "date taken" (EXIF DateTimeOriginal), or null. Reads only the start of the file. */
 export async function exifDate(file) {
   const buf = await file.slice(0, 256 * 1024).arrayBuffer();

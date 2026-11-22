@@ -14,7 +14,7 @@ const TILES = [
   { cls: 't-purple', icon: 'copies', label: 'Duplicate<br>Cleanup', later: 'duplicates' },
   { cls: 't-green', icon: 'wand', label: 'Restore &amp;<br>Enhance', later: 'restore' },
   { cls: 't-gold', icon: 'play', label: 'Videos<br>Manage', go: '#videos' },
-  { cls: 't-violet', icon: 'lock', label: 'Private<br>Vault', later: 'vault' },
+  { cls: 't-violet', icon: 'lock', label: 'Private<br>Vault', go: '#vault' },   // 11/22: built - opens with your code
   { cls: 't-pink', icon: 'calHeart', label: 'Memories<br>&amp; Highlights', later: 'memories' },
   { cls: 't-sky', icon: 'cloudUp', label: 'Backup<br>&amp; Sync', go: '#storage' },
   { cls: 't-teal', icon: 'share', label: 'Share<br>&amp; Create', later: 'share' },

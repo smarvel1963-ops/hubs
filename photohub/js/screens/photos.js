@@ -6,6 +6,7 @@
 import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, thumbnailUrl, fullImageUrl } from '../native/media-library.js';
+import { pending as vaultPending } from './vault.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 
 const PAGE = 120;
@@ -184,10 +185,13 @@ function openViewer(item) {
   v.className = 'viewer';
   const when = new Date(item.date);
   const dims = item.width && item.height ? `${item.width} x ${item.height}` : '';
-  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button></div>
-    <div class="stage">${isVideo ? `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>` : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
+  // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here
+  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${item.web ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}</div>
+    <div class="stage">${isVideo ? (item.web ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
     <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${item.favorite ? ' &middot; Favorite' : ''}<br>
       ${esc(item.name || '')}<br>${esc([formatBytes(item.size), dims, item.bucketName, isVideo ? formatDuration(item.durationMs) : ''].filter(Boolean).join(' · '))}</div>`;
   v.querySelector('button').addEventListener('click', () => v.remove());
+  const tv = v.querySelector('#tovault');
+  if (tv) tv.addEventListener('click', () => { vaultPending.item = item; v.remove(); location.hash = '#vault'; });
   document.body.appendChild(v);
 }

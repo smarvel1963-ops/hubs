@@ -10,6 +10,7 @@ import * as albums from './screens/albums.js';
 import * as tools from './screens/tools.js';
 import * as storage from './screens/storage.js';
 import * as more from './screens/more.js';
+import * as vault from './screens/vault.js';
 
 export const APP_VERSION = '0.1.0 (Phase 1 skeleton)';
 
@@ -21,6 +22,7 @@ const ROUTES = {
   tools: { mod: tools, tab: 'tools' },
   storage: { mod: storage, tab: 'tools' },
   more: { mod: more, tab: 'more' },
+  vault: { mod: vault, tab: 'home' },   // Private Vault (11/22) - opens only with the code
 };
 
 const TABS = [
