@@ -1,6 +1,6 @@
 // albums.js - C:\MarvelApps\photohub\www\js\screens\albums.js
 // Albums: All Photos / Favorites / Videos plus the phone's REAL folders (Camera, Screenshots, WhatsApp...) from
-// MediaStore, each opening the timeline. People / Places / Pets / Events are later-phase smart albums (no counts).
+// MediaStore, each opening the timeline. Places (0.7.0) sorts photos by town; People / Pets / Events are later-phase smart albums.
 
 import { icons } from '../icons.js';
 import { esc, comingLater, askForPhotoAccess } from '../ui.js';
@@ -11,7 +11,6 @@ import { formatCount } from '../lib/timeline.js';
 
 const LATER = [
   { key: 'people', name: 'People', icon: 'people' },
-  { key: 'places', name: 'Places', icon: 'pin' },
   { key: 'pets', name: 'Pets', icon: 'paw' },
   { key: 'events', name: 'Events', icon: 'cake' },
 ];
@@ -45,7 +44,7 @@ export async function render(root, params, ctx) {
     <div class="section-title">${ctx.access.web ? 'By month' : 'Phone folders'}</div>
     <div class="album-grid" id="folders">${readable ? '<div class="loading">Reading albums...</div>' : '<div class="note">--</div>'}</div>
     <div class="section-title">Smart albums</div>
-    <div class="album-grid">${LATER.map((a) => card({ name: a.name, icon: a.icon, sub: 'Later phase', later: a.key })).join('')}</div>
+    <div class="album-grid">${card({ key: 'places', name: 'Places', icon: 'pin', sub: 'By town', hash: '#places' })}${LATER.map((a) => card({ name: a.name, icon: a.icon, sub: 'Later phase', later: a.key })).join('')}</div>
   </div>`;
 
   root.addEventListener('click', async (e) => {

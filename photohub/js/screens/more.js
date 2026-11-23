@@ -43,7 +43,7 @@ export async function render(root, params, ctx) {
       openSheet({
         icon: 'info',
         title: 'Photo Hub - Phase 1 skeleton',
-        body: `Version ${ctx.version}.`,
+        body: `Version ${ctx.version}. Town names in Places come from GeoNames (geonames.org), shared under CC BY 4.0.`,
         list: [
           'Real: your photo library (read only), Smart Storage settings, the backup engine with its safety tests.',
           'Not connected yet: the cloud (Backblaze B2) and Google sign-in.',

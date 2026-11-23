@@ -35,6 +35,12 @@ export async function getAccess() {
 const LOC_ASKED = 'photohub.locationAsked';
 function locationAsked() { try { return localStorage.getItem(LOC_ASKED) === '1'; } catch (e) { return true; } }
 
+/** 0.7.0 Places: ask (again) for photo locations - from a tap on the Places screen. -> the same as getAccess() */
+export async function requestLocation() {
+  if (!isNative()) return { location: 'granted' };   // the browser hands over whatever the picked file holds
+  return typeof lib().requestLocation === 'function' ? lib().requestLocation() : lib().getAccess();
+}
+
 export async function requestAccess() {
   if (!isNative()) return web.requestAccess();   // opens the phone's picker - call straight from a tap
   return lib().requestAccess();

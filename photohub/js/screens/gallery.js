@@ -14,7 +14,7 @@ const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 
 const CARDS = [
   { key: 'people', label: 'People', icon: 'people', later: 'people', cls: 'g-teal' },
   { key: 'pets', label: 'Pets', icon: 'paw', later: 'pets', cls: 'g-gold' },
-  { key: 'places', label: 'Places', icon: 'pin', later: 'places', cls: 'g-ocean' },
+  { key: 'places', label: 'Places', icon: 'pin', go: '#places', cls: 'g-ocean' },   // 0.7.0
   { key: 'trips', label: 'Trips', icon: 'plane', later: 'trips', cls: 'g-blue' },
   { key: 'calendar', label: 'Calendar', icon: 'calendar', go: 'dates', cls: 'g-orange' },
   { key: 'recent', label: 'Recently Added', icon: 'image', go: '#photos?type=all&title=Recently%20Added', cls: 'g-violet' },
@@ -48,7 +48,8 @@ export async function render(root, params, ctx) {
     if (!b) return;
     if (b.id === 'ask') { const a = await askForPhotoAccess(ctx.access); ctx.setAccess(a); if (canRead(a)) ctx.rerender(); return; }
     if (b.dataset.f) {
-      if (b.dataset.f === 'places' || b.dataset.f === 'tags') { comingLater(b.dataset.f === 'places' ? 'places' : 'tags'); return; }
+      if (b.dataset.f === 'places') { ctx.go('#places'); return; }
+      if (b.dataset.f === 'tags') { comingLater('tags'); return; }
       mode = b.dataset.f;
       root.querySelectorAll('#chips .chip').forEach((c) => c.classList.toggle('on', c.dataset.f === mode));
       draw();

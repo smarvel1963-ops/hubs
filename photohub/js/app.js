@@ -13,9 +13,10 @@ import * as more from './screens/more.js';
 import * as vault from './screens/vault.js';
 import * as gallery from './screens/gallery.js';
 import * as memories from './screens/memories.js';
+import * as placesScreen from './screens/places.js';
 import * as runner from './backup/runner.js';
 
-export const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.7.0';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
@@ -28,6 +29,7 @@ const ROUTES = {
   tools: { mod: tools, tab: 'more' },
   storage: { mod: storage, tab: 'cloud' },
   more: { mod: more, tab: 'more' },
+  places: { mod: placesScreen, tab: 'albums' },   // 0.7.0 your photos by town
   vault: { mod: vault, tab: 'home' },   // Private Vault (11/22) - opens only with the code
 };
 

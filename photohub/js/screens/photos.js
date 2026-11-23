@@ -9,6 +9,7 @@ import { canRead, listMedia, thumbnailUrl, fullImageUrl, heart, myAlbums, hasFul
 import { pending as vaultPending } from './vault.js';
 import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum, addManyToAlbum, removeManyFromAlbum } from '../lib/mine.js';
 import { cloudFullUrl } from '../lib/cloud-images.js';
+import * as places from '../lib/places.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 
@@ -20,6 +21,7 @@ export async function render(root, params, ctx) {
   const bucketId = params.bucket || null;
   const fav = params.fav === '1';
   const albumId = params.album || null;   // one of your own albums (11/22)
+  const placeKey = params.place || null;  // 0.7.0: one town from Places
   const title = (albumId && albumName(albumId)) || params.title || (type === 'video' ? 'Videos' : 'All Photos');
   const access = ctx.access;
 
@@ -28,7 +30,7 @@ export async function render(root, params, ctx) {
       <button class="icon-btn" id="back" aria-label="Back">${icons.back}</button>
       <h1>${esc(title)}</h1><span class="count" id="count"></span><button class="pill-btn" id="selBtn">Select</button>${albumId ? `<button class="pill-btn" id="albumEdit">Edit</button>` : ''}
     </div>
-    ${bucketId || albumId ? '' : `<div class="chips">
+    ${bucketId || albumId || placeKey ? '' : `<div class="chips">
       <button class="chip ${type === 'all' && !fav ? 'on' : ''}" data-go="#photos?type=all&title=All%20Photos">All</button>
       <button class="chip ${type === 'image' && !fav ? 'on' : ''}" data-go="#photos?type=image&title=Photos">Photos</button>
       <button class="chip ${type === 'video' ? 'on' : ''}" data-go="#videos">Videos</button>
@@ -44,6 +46,13 @@ export async function render(root, params, ctx) {
   </div>`;
 
   const list = root.querySelector('#list');
+  // 0.7.0 Places: one town's photos (remembered by lib/places.js), a page at a time like every other list
+  async function placePage(off) {
+    const all = await places.items(placeKey);
+    const page = all.slice(off, off + PAGE);
+    return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
+  }
+  if (placeKey) places.label(placeKey).then((l) => { const h = root.querySelector('.subbar h1'); if (alive && l && h) h.textContent = l; });
   const status = root.querySelector('#status');
   const ae = root.querySelector('#albumEdit');
   if (ae) ae.addEventListener('click', () => sheet({ icon: 'image', title, body: 'Rename this album, or delete it. Deleting an album never deletes a photo.',
@@ -144,7 +153,7 @@ export async function render(root, params, ctx) {
     loading = true;
     status.innerHTML = '<div class="loading">Loading photos...</div>';
     try {
-      const r = await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
+      const r = placeKey ? await placePage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
       if (!alive) return;
       offset = r.offset + r.items.length;
       hasMore = r.hasMore;
