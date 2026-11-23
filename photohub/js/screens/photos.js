@@ -7,7 +7,7 @@ import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, thumbnailUrl, fullImageUrl, heart, myAlbums, hasFullFile } from '../native/media-library.js';
 import { pending as vaultPending } from './vault.js';
-import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum } from '../lib/mine.js';
+import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum, addManyToAlbum, removeManyFromAlbum } from '../lib/mine.js';
 import { cloudFullUrl } from '../lib/cloud-images.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
@@ -26,7 +26,7 @@ export async function render(root, params, ctx) {
   root.innerHTML = `<div class="screen">
     <div class="subbar">
       <button class="icon-btn" id="back" aria-label="Back">${icons.back}</button>
-      <h1>${esc(title)}</h1><span class="count" id="count"></span>${albumId ? `<button class="pill-btn" id="albumEdit">Edit</button>` : ''}
+      <h1>${esc(title)}</h1><span class="count" id="count"></span><button class="pill-btn" id="selBtn">Select</button>${albumId ? `<button class="pill-btn" id="albumEdit">Edit</button>` : ''}
     </div>
     ${bucketId || albumId ? '' : `<div class="chips">
       <button class="chip ${type === 'all' && !fav ? 'on' : ''}" data-go="#photos?type=all&title=All%20Photos">All</button>
@@ -38,6 +38,9 @@ export async function render(root, params, ctx) {
     <div id="list"></div>
     <div class="sentinel" id="sentinel"></div>
     <div id="status"></div>
+    <div class="selbar" id="selbar" hidden><button class="icon-btn" id="selX" aria-label="Stop selecting">${icons.close}</button>
+      <b id="selN">Tap photos to pick them</b><span style="flex:1"></span><button class="pill-btn" id="selAll">All</button>
+      ${albumId ? '<button class="pill-btn" id="selOut">Take out</button>' : ''}<button class="primary-btn" id="selAdd">Add to album</button></div>
   </div>`;
 
   const list = root.querySelector('#list');
@@ -172,9 +175,73 @@ export async function render(root, params, ctx) {
   }, { rootMargin: '1200px 0px' });
   pageObserver.observe(sentinel);
 
+  // ---------- 0.6.0 SELECT MANY: hold a photo (or tap Select) -> it highlights; tap more; then act on them all ----------
+  let selecting = false, longFired = false, pressT = null, pressAt = null;
+  const picked = new Set();
+  const selbar = root.querySelector('#selbar');
+  function paintSel() {
+    root.querySelector('#selN').textContent = picked.size ? `${formatCount(picked.size)} selected` : 'Tap photos to pick them';
+    root.querySelector('#selAdd').disabled = !picked.size;
+    const out = root.querySelector('#selOut'); if (out) out.disabled = !picked.size;
+  }
+  function setSelecting(on) {
+    selecting = on;
+    selbar.hidden = !on;
+    root.classList.toggle('selecting', on);
+    root.querySelector('#selBtn').textContent = on ? 'Done' : 'Select';
+    if (!on) { picked.clear(); list.querySelectorAll('.cell.sel').forEach((c) => c.classList.remove('sel')); }
+    paintSel();
+  }
+  function toggleCell(cell) {
+    const id = cell.dataset.id;
+    if (picked.has(id)) picked.delete(id); else picked.add(id);
+    cell.classList.toggle('sel', picked.has(id));
+    paintSel();
+  }
+  function longPress(cell) {
+    longFired = true;
+    if (!selecting) setSelecting(true);
+    if (!picked.has(cell.dataset.id)) toggleCell(cell);
+    try { navigator.vibrate && navigator.vibrate(15); } catch (e) { /* no buzz */ }
+  }
+  const cancelPress = () => { clearTimeout(pressT); pressT = null; };
+  list.addEventListener('pointerdown', (e) => {
+    const cell = e.target.closest('.cell');
+    if (!cell || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    longFired = false; pressAt = [e.clientX, e.clientY];
+    cancelPress();
+    pressT = setTimeout(() => { pressT = null; longPress(cell); }, 450);
+  });
+  list.addEventListener('pointermove', (e) => { if (pressT && pressAt && Math.hypot(e.clientX - pressAt[0], e.clientY - pressAt[1]) > 10) cancelPress(); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) list.addEventListener(ev, cancelPress);
+  // a long press on a phone also sends 'contextmenu' (and right-click on a PC): no menu, it selects
+  list.addEventListener('contextmenu', (e) => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    e.preventDefault();
+    if (pressT) { cancelPress(); longPress(cell); } else if (!longFired) longPress(cell);
+  });
   list.addEventListener('click', (e) => {
     const cell = e.target.closest('.cell');
-    if (cell) openViewer(byId.get(cell.dataset.id));
+    if (!cell) return;
+    if (longFired) { longFired = false; return; }   // the finger that started the selection lifting off
+    if (selecting) { toggleCell(cell); return; }
+    openViewer(byId.get(cell.dataset.id));
+  });
+  root.querySelector('#selBtn').addEventListener('click', () => setSelecting(!selecting));
+  root.querySelector('#selX').addEventListener('click', () => setSelecting(false));
+  root.querySelector('#selAll').addEventListener('click', () => {
+    list.querySelectorAll('.cell').forEach((c) => { picked.add(c.dataset.id); c.classList.add('sel'); });
+    paintSel();
+  });
+  const pickedItems = () => [...picked].map((id) => byId.get(id)).filter(Boolean);
+  root.querySelector('#selAdd').addEventListener('click', () => albumPickerMany(pickedItems(), () => setSelecting(false)));
+  const so = root.querySelector('#selOut');
+  if (so) so.addEventListener('click', () => {
+    const n = removeManyFromAlbum(albumId, pickedItems());
+    setSelecting(false);
+    note(`${formatCount(n)} taken out of ${albumName(albumId)} - the photos themselves stay where they are`);
+    ctx.rerender();
   });
 
   await loadMore();
@@ -224,6 +291,36 @@ export function openViewer(item) {
     if (cell) { cell.querySelector('.fav')?.remove(); if (on) cell.insertAdjacentHTML('beforeend', `<span class="fav">${icons.heart}</span>`); }
   });
   document.body.appendChild(v);
+}
+
+// 0.6.0 SELECT MANY: tap an album and every picked photo goes in it; "New album" makes one and puts them all in.
+function albumPickerMany(items, done) {
+  if (!items.length) return;
+  const back = document.createElement('div');
+  back.className = 'sheet-backdrop';
+  const mine = myAlbums();
+  back.innerHTML = `<div class="sheet"><div class="grab"></div><h2>Add ${formatCount(items.length)} to an album</h2>
+    <div class="album-pick">${mine.length ? mine.map((a) => `<button data-a="${esc(a.id)}"><span class="box">${icons.image}</span><span class="nm">${esc(a.name)}</span><span class="ct">${a.total}</span></button>`).join('') : '<p class="note">No albums yet - make your first one.</p>'}</div>
+    <div class="actions"><button class="primary-btn" data-new>+ New album</button><button class="ghost-btn" data-done>Cancel</button></div></div>`;
+  const put = (id) => { const n = addManyToAlbum(id, items); back.remove(); done(); note(n ? `${formatCount(n)} added to ${albumName(id)}` : `They were already in ${albumName(id)}`); };
+  back.addEventListener('click', async (e) => {
+    if (e.target === back || e.target.closest('[data-done]')) { back.remove(); return; }
+    const a = e.target.closest('[data-a]');
+    if (a) { put(a.dataset.a); return; }
+    if (e.target.closest('[data-new]')) {
+      back.remove();
+      const n = await askText({ title: 'New album', label: 'Give it a name - like "Grandkids", "Beach 2026" or "Recipes".', ok: 'Make album' });
+      if (n) put(createAlbum(n));
+    }
+  });
+  document.body.appendChild(back);
+}
+function note(text) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = text;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
 }
 
 // YOUR OWN ALBUMS (11/22): tick the albums this photo goes in; "New album" makes one and puts the photo in it.

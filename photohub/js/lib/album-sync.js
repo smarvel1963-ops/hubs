@@ -31,9 +31,16 @@ function setMark(a, key, t) {
 }
 function learnShas(a) {
   for (const key of Object.keys(a.at)) {
-    if (a.sha[key]) continue;
     const s = lookups.shaForKey(key);
-    if (s) a.sha[key] = s;
+    if (!s || s === a.sha[key]) continue;
+    // 0.6.0: the photo went up again as its TRUE original (Android had blanked out where it was taken) - a new cloud name.
+    // The album follows the new copy and lets go of the old one (the old copy itself is not deleted).
+    if (a.sha[key]) {
+      const now = Date.now();
+      a.swap[a.sha[key]] = now;
+      if (a.members.includes(key)) a.at[key] = now;
+    }
+    a.sha[key] = s;
   }
 }
 
@@ -54,6 +61,7 @@ export function toDoc() {
         if (meta) doc.meta[sha] = meta;
       }
     }
+    for (const [old, t] of Object.entries(a.swap || {})) m[old] = pick(m[old], -t);
     for (const [sha, t] of Object.entries(a.cloud)) {
       m[sha] = pick(m[sha], t);
       if (!doc.meta[sha] && a.cmeta[sha]) doc.meta[sha] = a.cmeta[sha];
@@ -81,13 +89,14 @@ export function apply(cloud) {
     if (gone[id]) continue;   // deleted here and not in the cloud yet - the next sync sends it
     let a = byId.get(id);
     if (!a) {
-      a = { id, name: ca.n, nameAt: ca.nt, created: ca.c || Date.now(), members: [], at: {}, sha: {}, meta: {}, cloud: {}, cmeta: {} };
+      a = { id, name: ca.n, nameAt: ca.nt, created: ca.c || Date.now(), members: [], at: {}, sha: {}, meta: {}, cloud: {}, cmeta: {}, swap: {} };
       byId.set(id, a);
     }
     if (ca.nt > a.nameAt || (ca.nt === a.nameAt && ca.n > a.name)) { a.name = ca.n; a.nameAt = ca.nt; }
     learnShas(a);
     const keyBySha = new Map(Object.entries(a.sha).map(([k, s]) => [s, k]));
     for (const [sha, t] of Object.entries(ca.m)) {
+      if (a.swap && a.swap[sha]) { a.cloud[sha] = pick(a.cloud[sha], -a.swap[sha]); continue; }   // the old copy of a re-sent photo
       let key = keyBySha.get(sha);
       if (!key) {
         const found = lookups.itemsForSha(sha)[0];   // the same photo is on this phone / picked this visit

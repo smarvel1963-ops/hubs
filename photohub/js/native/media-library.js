@@ -20,11 +20,20 @@ function lib() {
   return plugin;
 }
 
-/** -> { state: 'granted' | 'limited' | 'prompt' | 'denied' | 'unavailable', favoritesSupported } */
+/** -> { state: 'granted' | 'limited' | 'prompt' | 'denied' | 'unavailable', favoritesSupported, location (phone app 0.6.0+) } */
 export async function getAccess() {
   if (!isNative()) return web.getAccess();
-  return lib().getAccess();
+  const a = await lib().getAccess();
+  // 0.6.0: a phone that already gave photo access is asked ONCE for photo locations - without it Android blanks out where each
+  // photo was taken when Photo Hub reads it, and the backup copies lost the location (Scott's D: copies, 11/22)
+  if (canRead(a) && a.location === 'prompt' && typeof lib().requestLocation === 'function' && !locationAsked()) {
+    try { localStorage.setItem(LOC_ASKED, '1'); } catch (e) { /* private mode */ }
+    try { return await lib().requestLocation(); } catch (e) { return a; }
+  }
+  return a;
 }
+const LOC_ASKED = 'photohub.locationAsked';
+function locationAsked() { try { return localStorage.getItem(LOC_ASKED) === '1'; } catch (e) { return true; } }
 
 export async function requestAccess() {
   if (!isNative()) return web.requestAccess();   // opens the phone's picker - call straight from a tap

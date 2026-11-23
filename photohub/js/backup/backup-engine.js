@@ -403,6 +403,11 @@ export class BackupEngine {
         });
       }
 
+      if (rec.priorSha256) {   // 0.6.0 re-read: keep a note of the copy without the location when the original differs
+        if (rec.priorSha256 !== sha256) rec.previousVersions.push({ sha256: rec.priorSha256, size: rec.priorSize, remoteKey: remoteKeyFor(rec.priorSha256), verifiedAt: null, why: 'location_hidden' });
+        delete rec.priorSha256;
+        delete rec.priorSize;
+      }
       rec.status = STATUS.BACKED_UP;
       rec.remoteKey = key;
       rec.verifiedAt = this._now();
@@ -447,6 +452,32 @@ export class BackupEngine {
     return !!rec && rec.favorite && this._settings().keepFavoritesOnDevice !== false;
   }
 
+  /**
+   * 0.6.0: photos backed up before Photo Hub could read the ORIGINAL files (Android blanked out where they were taken) are read
+   * again, one time. A photo whose bytes are the same (it had no location to hide) is found already in the cloud - a read and a
+   * check, no upload. One that changed goes up as the true original; the earlier copy is remembered in previousVersions (kept).
+   */
+  async requeueForOriginals() {
+    this._requireInit();
+    let n = 0;
+    for (const id of this._state.order) {
+      const rec = this._state.records[id];
+      if (rec.status !== STATUS.BACKED_UP) continue;
+      rec.priorSha256 = rec.sha256;
+      rec.priorSize = rec.size;
+      rec.status = STATUS.QUEUED;
+      rec.attempts = 0;
+      rec.nextTryAt = 0;
+      rec.needsAttention = false;
+      rec.verifiedAt = null;
+      rec.dedupedFrom = null;
+      n++;
+    }
+    if (n) await this._persist();
+    this._emit('queued', { added: 0, updated: 0, requeued: n });
+    return n;
+  }
+
   isBackedUp(id) {
     this._requireInit();
     const rec = this._state.records[String(id)];
@@ -466,7 +497,7 @@ export class BackupEngine {
 
   summary() {
     this._requireInit();
-    const out = { total: 0, queued: 0, uploading: 0, backedUp: 0, failed: 0, needsAttention: 0, keepOnDevice: 0, backedUpBytes: 0 };
+    const out = { total: 0, queued: 0, uploading: 0, backedUp: 0, failed: 0, needsAttention: 0, keepOnDevice: 0, backedUpBytes: 0, rechecking: 0 };
     for (const id of this._state.order) {
       const rec = this._state.records[id];
       out.total++;
@@ -475,6 +506,7 @@ export class BackupEngine {
       else if (rec.status === STATUS.BACKED_UP) { out.backedUp++; out.backedUpBytes += rec.size || 0; }
       else if (rec.status === STATUS.FAILED) out.failed++;
       if (rec.needsAttention) out.needsAttention++;
+      if (rec.priorSha256) out.rechecking++;
       if (this.keepOnDevice(id)) out.keepOnDevice++;
     }
     return out;

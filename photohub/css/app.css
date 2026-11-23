@@ -215,6 +215,22 @@ h1, h2, h3 { margin: 0; }
 .cell .dur svg { width: 11px; height: 11px; }
 .cell .fav { position: absolute; left: 4px; top: 4px; color: #ff5c8a; filter: drop-shadow(0 1px 2px #000); }
 .cell .fav svg { width: 14px; height: 14px; }
+/* 0.6.0 select many */
+.cell { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }   /* a long press selects - no image menu */
+.cell img { -webkit-user-drag: none; pointer-events: none; }
+.selecting .cell img { transition: transform 0.12s; }
+.cell.sel img { transform: scale(0.86); border-radius: 8px; }
+.cell.sel { outline: 3px solid #4f9bff; outline-offset: -3px; }
+.cell.sel::after { content: '\2713'; position: absolute; left: 5px; top: 4px; width: 22px; height: 22px; border-radius: 50%; background: #2f7df5;
+  color: #fff; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px #000; }
+.selbar { position: fixed; left: 8px; right: 8px; bottom: calc(var(--nav-h) + 8px); z-index: 30; display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 16px; background: rgba(10, 22, 60, 0.97); border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+.selbar[hidden] { display: none; }
+.selbar b { font-size: 14px; white-space: nowrap; }
+.selbar .primary-btn { padding: 8px 14px; }
+.selbar button:disabled { opacity: 0.45; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + 74px); z-index: 60; background: #1d2b5c; color: #fff;
+  padding: 10px 16px; border-radius: 12px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.4); max-width: 90vw; text-align: center; }
 .cell .incloud { position: absolute; right: 4px; top: 2px; font-size: 15px; color: #fff; text-shadow: 0 1px 3px #000; }   /* album photo kept in the cloud */
 .sentinel { height: 1px; }
 .empty { text-align: center; padding: 38px 18px; color: var(--muted); }

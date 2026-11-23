@@ -15,7 +15,7 @@ import * as gallery from './screens/gallery.js';
 import * as memories from './screens/memories.js';
 import * as runner from './backup/runner.js';
 
-export const APP_VERSION = '0.5.0';
+export const APP_VERSION = '0.6.0';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {

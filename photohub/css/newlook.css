@@ -164,3 +164,9 @@ body { background: linear-gradient(180deg, #e7eeff 0%, #f6f4ff 45%, #f3f6ff 100%
 .c2-acct{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 4px}
 .c2-acct .ghost-btn{padding:4px 10px}
 #now{margin-top:6px}
+
+/* 0.6.0 select many: the select bar + note in the light look */
+.selbar { background: #fff; color: var(--text); border-color: var(--line); box-shadow: 0 8px 28px rgba(30, 40, 100, 0.22); }
+.selbar .icon-btn { color: var(--text); }
+.selbar .pill-btn { background: #ecebff; color: var(--accent); }
+.toast { background: var(--text); color: #fff; }

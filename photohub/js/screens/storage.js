@@ -149,6 +149,7 @@ export async function render(root, params, ctx) {
         extra.push(t);
       }
     }
+    if (s.summary && s.summary.rechecking) extra.push(`Keeping where your photos were taken: checking ${formatCount(s.summary.rechecking)} backed-up photos once more - only the ones that had a location go up again, as the true original.`);
     if (u) {   // 11/22 album sync
       const al = albumSync.status();
       if (al.error) extra.push(`Albums: not saved to the cloud yet - ${al.error}.`);

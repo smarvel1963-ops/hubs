@@ -16,7 +16,7 @@ import { CloudTarget, cloudBase } from './cloud-target.js';
 import { IndexedDBStateStore } from './idb-store.js';
 import { MemoryStateStore } from './state-store.js';
 import * as account from '../lib/account.js';
-import { isNative, listMedia, fullImageUrl } from '../native/media-library.js';
+import { isNative, listMedia, fullImageUrl, getAccess } from '../native/media-library.js';
 import * as web from '../native/web-library.js';
 import { getNetwork, onNetworkChange } from '../native/network.js';
 import { loadSettings } from '../lib/settings.js';
@@ -103,6 +103,17 @@ async function scan() {
   await engine.addPhotos(fits);
 }
 
+// ---------- 0.6.0 ORIGINALS: once Photo Hub may read the original files, re-read every backed-up photo ONE time (per account) ----------
+async function originalsOnce() {
+  if (!isNative() || !engine || !account.current()) return;
+  const key = 'photohub.originals.' + account.current().uid;
+  try { if (localStorage.getItem(key) === '1') return; } catch (e) { return; }
+  const a = await getAccess().catch(() => null);
+  if (!a || a.location !== 'granted') return;   // older Android never hid it: 'granted' too; no answer yet: ask again next pass
+  await engine.requeueForOriginals();
+  try { localStorage.setItem(key, '1'); } catch (e) { /* private mode */ }
+}
+
 // ---------- 11/22 ALBUM SYNC: which cloud photo (SHA-256) a phone photo is, and the other way round ----------
 function shaForKey(key) {
   if (!engine) return null;
@@ -151,6 +162,7 @@ async function pass() {
   if (!account.current()) return phase('signed_out');   // sign-in is the first step, whatever the switch says
   if (!s.backupEnabled && !nowOnce) return phase('off');
   if (!engine) await makeEngine();
+  await originalsOnce();
   if (isNative()) network = await getNetwork();
   else network = { connected: typeof navigator === 'undefined' || navigator.onLine !== false, type: 'unknown' };
   const why = engine.whyNotRunning();

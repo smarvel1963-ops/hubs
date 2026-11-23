@@ -8,7 +8,8 @@
 // remembers WHEN each change was made (so lib/album-sync.js can put two phones together - later change wins), each photo's cloud name
 // (its SHA-256, once it is backed up), and the photos that are in the album on ANOTHER phone / the web (cloud-only, shown from the cloud).
 //   album = { id, name, nameAt, created, members: [key], at: {key: when put in / taken out}, sha: {key: sha256}, meta: {key: {d, v, n}},
-//             cloud: {sha256: +when in / -when out}, cmeta: {sha256: {d, v, n}} }
+//             cloud: {sha256: +when in / -when out}, cmeta: {sha256: {d, v, n}},
+//             swap: {old sha256: when} - 0.6.0: a photo that went up again as its true original; the old copy leaves the album }
 //   deleted albums: 'photohub.albums.gone' = {id: when deleted} - deleting an album never deletes a photo.
 
 const HEARTS = 'photohub.hearts', ALBUMS = 'photohub.albums', SNAPS = 'photohub.snaps', GONE = 'photohub.albums.gone';
@@ -26,7 +27,7 @@ function fixAlbum(a) {
   a.members = Array.isArray(a.members) ? a.members : [];
   a.at = a.at && typeof a.at === 'object' ? a.at : {};
   for (const k of a.members) if (!a.at[k]) a.at[k] = a.created;
-  for (const k of ['sha', 'meta', 'cloud', 'cmeta']) if (!a[k] || typeof a[k] !== 'object') a[k] = {};
+  for (const k of ['sha', 'meta', 'cloud', 'cmeta', 'swap']) if (!a[k] || typeof a[k] !== 'object') a[k] = {};
   return a;
 }
 
@@ -96,6 +97,36 @@ export function toggleInAlbum(id, i) {
   a.at[s] = now;
   if (i.sha256 && !a.sha[s]) a.sha[s] = i.sha256;
   saveAlbums(); return at < 0;
+}
+
+/** 0.6.0 select many: puts all these photos in the album (one save, one cloud sync). Returns how many were not in it before. */
+export function addManyToAlbum(id, items) {
+  const a = albums.find((x) => x.id === id); if (!a) return 0;
+  const now = Date.now();
+  let n = 0;
+  for (const i of items) {
+    if (i.cloud) { if (!((a.cloud[i.sha256] || 0) > 0)) { a.cloud[i.sha256] = now; a.cmeta[i.sha256] = a.cmeta[i.sha256] || metaOf(i); n++; } continue; }
+    const s = sigOf(i);
+    if (a.members.includes(s)) continue;
+    a.members.push(s); keepSnap(i); a.meta[s] = metaOf(i); a.at[s] = now; n++;
+    if (i.sha256 && !a.sha[s]) a.sha[s] = i.sha256;
+  }
+  if (n) saveAlbums();
+  return n;
+}
+/** 0.6.0 select many: takes these photos out of the album (the photos themselves are never touched). Returns how many. */
+export function removeManyFromAlbum(id, items) {
+  const a = albums.find((x) => x.id === id); if (!a) return 0;
+  const now = Date.now();
+  let n = 0;
+  for (const i of items) {
+    if (i.cloud) { if ((a.cloud[i.sha256] || 0) > 0) { a.cloud[i.sha256] = -now; n++; } continue; }
+    const s = sigOf(i), at = a.members.indexOf(s);
+    if (at < 0) continue;
+    a.members.splice(at, 1); a.at[s] = now; n++;
+  }
+  if (n) saveAlbums();
+  return n;
 }
 
 /** Album photos that are only in the cloud (not on this phone / not picked this visit), as items the screens can show.
