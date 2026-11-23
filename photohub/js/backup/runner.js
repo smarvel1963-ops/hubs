@@ -11,7 +11,7 @@
 // Files over 95 MB (long videos) are left out for now and counted, never silently skipped.
 
 import { BackupEngine, SKIP } from './backup-engine.js';
-import { CloudTarget } from './cloud-target.js';
+import { CloudTarget, cloudBase } from './cloud-target.js';
 import { IndexedDBStateStore } from './idb-store.js';
 import { MemoryStateStore } from './state-store.js';
 import * as account from '../lib/account.js';
@@ -69,7 +69,10 @@ function makeEngine() {
     store: isNative() ? new IndexedDBStateStore(account.current() ? account.current().uid : 'nobody') : new MemoryStateStore(),
     getSettings: () => (nowOnce ? { ...settings(), backupEnabled: true } : settings()),
     getNetwork: () => network,
-    onEvent: (type) => { if (type === 'backed_up' || type === 'failed') { st.summary = engine.summary(); notify(true); } },
+    onEvent: (type, data) => {
+      if (type === 'backed_up' && data) tellBackground(data.id);
+      if (type === 'backed_up' || type === 'failed') { st.summary = engine.summary(); notify(true); }
+    },
   });
   return engine.init();
 }
@@ -94,6 +97,31 @@ async function scan() {
   st.tooBig = all.length - fits.length;
   await engine.addPhotos(fits);
 }
+
+// ---------- 0.4.0 BACKGROUND BACKUP (android BackupWorker): keeps going about every hour with the app closed ----------
+// The phone app tells the native side whether Auto Backup is on (and Wi-Fi only), and which photos it already backed up so the
+// background never reads them again. Older app builds have no BackgroundBackup plugin: everything here quietly does nothing.
+function bg() {
+  const c = globalThis.Capacitor;
+  return isNative() && c && typeof c.isPluginAvailable === 'function' && c.isPluginAvailable('BackgroundBackup') ? c.registerPlugin('BackgroundBackup') : null;
+}
+export const hasBackground = () => !!bg();
+let bgSent = '';
+async function bgConfigure() {
+  const p = bg(); if (!p) return;
+  const s = settings();
+  const want = { enabled: !!(s.backupEnabled && account.current() && st.phase !== 'not_allowed'), wifiOnly: s.wifiOnly !== false, cloudUrl: cloudBase() };
+  const key = JSON.stringify(want);
+  if (key === bgSent) return;
+  try { await p.configure(want); bgSent = key; } catch (e) { /* tried again next pass */ }
+}
+function tellBackground(id) {
+  const p = bg(); if (!p || !engine) return;
+  const r = engine.record(id);
+  if (r && r.sha256) p.markDone({ items: [{ id: Number(id), modified: Number(r.photo.dateModified) || 0, sha256: r.sha256, size: r.size || 0 }] }).catch(() => null);
+}
+/** The last background run (phone app 0.4.0+), or null. */
+export async function backgroundStatus() { const p = bg(); if (!p) return null; try { return await p.status(); } catch (e) { return null; } }
 
 async function pass() {
   await account.init();
@@ -133,6 +161,7 @@ export function kick({ now = false } = {}) {
     do {
       again = false;
       try { await pass(); } catch (e) { phase('unreachable', (e && e.message) || String(e)); }
+      await bgConfigure();
     } while (again);
   })().finally(() => { running = null; nowOnce = false; });
   return running;

@@ -3,7 +3,8 @@
 // 11/22 cloud is REAL (Scott: "Yes, build it"): backups go to Photo Hub's service on Cloudflare -> Backblaze B2 (US East), each person in
 // their own folder. Every number here is real: the backup engine's own counts and what the cloud says it holds. Nothing on this screen
 // deletes anything - "Clean Up" stays disabled until the never-lose-a-photo checks are done.
-//   Phone app: Auto Backup reads the phone library and backs up what is not in the cloud yet, while Photo Hub is open.
+//   Phone app: Auto Backup reads the phone library and backs up what is not in the cloud yet - while Photo Hub is open, and since
+//   0.4.0 also in the background about every hour on Wi-Fi (android BackupWorker), with the last background run shown here.
 //   Web version (PC / iPhone / Android browser): backs up the photos picked this visit (automatically, or "Back up now").
 
 import { icons } from '../icons.js';
@@ -22,6 +23,7 @@ export async function render(root, params, ctx) {
   let alive = true;
   let settings = loadSettings();
   let network = await getNetwork();
+  let bgInfo = null;                       // 0.4.0: the last background run (null = this app build has no background backup)
   const web = !!ctx.access.web || !(globalThis.Capacitor && globalThis.Capacitor.isNativePlatform && globalThis.Capacitor.isNativePlatform());
   await account.init();
 
@@ -82,7 +84,7 @@ export async function render(root, params, ctx) {
 
     <section class="card">
       <div class="card-head">${icons.settings}<h2>Backup settings</h2></div>
-      ${toggle('backupEnabled', 'cloudUp', 'Auto Backup', web ? 'Backs up the photos you pick, as soon as you pick them' : 'Backs up new photos and videos while Photo Hub is open')}
+      ${toggle('backupEnabled', 'cloudUp', 'Auto Backup', web ? 'Backs up the photos you pick, as soon as you pick them' : runner.hasBackground() ? 'Backs up new photos and videos - in the background too, about every hour' : 'Backs up new photos and videos while Photo Hub is open')}
       ${web ? '' : toggle('wifiOnly', 'wifi', 'Backup over Wi-Fi only', 'Never uses your mobile data')}
       ${toggle('keepFavoritesOnDevice', 'heart', 'Keep favorites on this phone', 'Hearted photos are backed up AND always stay on the phone')}
       <div class="row"><span class="ico">${icons.wifi}</span><span class="txt"><b>Right now</b><span id="netLine">${esc(describeNetwork(network))}</span></span></div>
@@ -133,7 +135,19 @@ export async function render(root, params, ctx) {
     else acct.innerHTML = `<button class="primary-btn" id="in">Sign in with Google</button>`;
     const extra = [];
     if (s.tooBig) extra.push(`${formatCount(s.tooBig)} video${s.tooBig === 1 ? '' : 's'} over 95 MB wait for a later update.`);
-    if (!web && settings.backupEnabled && u) extra.push('Backs up while Photo Hub is open.');
+    if (!web && settings.backupEnabled && u) {
+      if (!runner.hasBackground()) extra.push('Backs up while Photo Hub is open.');
+      else {
+        let t = `Also backs up in the background about every hour${settings.wifiOnly ? ' on Wi-Fi' : ''}, even with Photo Hub closed.`;
+        const b = bgInfo;
+        if (b && b.lastRun) {
+          const when = new Date(b.lastRun).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+          const why = { 'signed out': 'it needs you signed in', 'no photo access': 'it needs photo access', 'not allowed': 'this account is not open for backup' }[b.lastStop] || (b.lastStop ? b.lastStop : '');
+          t += ` Last background run ${when}: ${formatCount(b.lastUploaded)} backed up${b.lastLeft ? `, ${formatCount(b.lastLeft)} still to go` : ''}${b.lastFailed ? `, ${formatCount(b.lastFailed)} to retry` : ''}${why ? ' - ' + why : ''}.`;
+        } else t += ' First background run within the hour.';
+        extra.push(t);
+      }
+    }
     root.querySelector('#extra').textContent = extra.join(' ');
     const now = root.querySelector('#now');
     if (now) { now.hidden = !u; now.disabled = s.phase === 'uploading' || s.phase === 'scanning'; }
@@ -244,9 +258,12 @@ export async function render(root, params, ctx) {
   }
 
   paint();
-  const stopStatus = runner.onStatus(paint);
+  const loadBg = () => runner.backgroundStatus().then((b) => { bgInfo = b; if (alive) paint(); }).catch(() => {});
+  loadBg();
+  const bgTimer = setInterval(loadBg, 60000);
+  const stopStatus = runner.onStatus((st2) => { paint(st2); });
   const stopAcct = account.onChange(() => paint());
   const stopNet = await onNetworkChange((n) => { network = n; paint(); });
   runner.kick();
-  return () => { alive = false; stopStatus(); stopAcct(); stopNet(); };
+  return () => { alive = false; clearInterval(bgTimer); stopStatus(); stopAcct(); stopNet(); };
 }

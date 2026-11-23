@@ -13,6 +13,7 @@ import { toBytes } from './sha256.js';
 
 export const CLOUD_URL = 'https://photohub-cloud.photohub-cloud.workers.dev';
 const base = () => globalThis.PH_CLOUD_URL || CLOUD_URL;   // tests point this at the service running on the PC
+export const cloudBase = base;
 
 /** 11/22 PC links: a signed-in call to the service (used by the Cloud page's "Keep a copy on my PC"). Throws with the service's words. */
 export async function cloudCall(account, path, init = {}) {
