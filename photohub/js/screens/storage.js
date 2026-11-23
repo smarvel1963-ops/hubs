@@ -16,6 +16,7 @@ import { loadSettings, saveSettings } from '../lib/settings.js';
 import { formatBytes, formatCount } from '../lib/timeline.js';
 import * as account from '../lib/account.js';
 import * as runner from '../backup/runner.js';
+import { cloudCall } from '../backup/cloud-target.js';
 
 export async function render(root, params, ctx) {
   let alive = true;
@@ -49,6 +50,22 @@ export async function render(root, params, ctx) {
       ${web ? '<p class="note" id="remLine"></p><button class="ghost-btn" id="forget" hidden>Forget my photos</button>' : ''}
       <p class="note" id="libNote">${canRead(ctx.access) ? '' : 'Phone numbers show once you allow photo access.'}</p>
       ${canRead(ctx.access) || ctx.access.state === 'unavailable' ? '' : `<button class="primary-btn" id="ask">${web ? 'Pick photos' : 'Allow photo access'}</button>`}
+    </section>
+
+    <section class="card" id="pcCard" hidden>
+      <div class="card-head">${icons.database}<h2>Keep a copy on my PC</h2></div>
+      <p class="note">Your cloud backups can also be copied to your own computer's drive, automatically, by the Photo Hub PC helper.
+        Link the PC once with a code - the code can only read your backups, never change or delete them.</p>
+      <div id="pcList"></div>
+      <button class="primary-btn" id="pcLink">Link a PC</button>
+      <div id="pcCode" hidden>
+        <p class="note"><b>Your PC code</b> - copy it now (it is shown only once):</p>
+        <input class="text-in" id="pcCodeBox" readonly style="width:100%;font-family:monospace;font-size:13px">
+        <button class="ghost-btn" id="pcCopy">Copy code</button>
+        <p class="note">On the PC: open the Photo Hub PC helper, open its page, and paste the code under <b>Copy from the cloud</b>.
+          New photos then land in your PC's photo folder every 10 minutes while the helper is open.</p>
+      </div>
+      <p class="note" id="pcMsg"></p>
     </section>
 
     <section class="card c2-clean">
@@ -124,6 +141,22 @@ export async function render(root, params, ctx) {
     if (s.me && u) line.textContent = `Cloud: ${formatCount(s.me.photos)} photo${s.me.photos === 1 ? '' : 's'} · ${formatBytes(s.me.bytes)}`;
     else line.textContent = u ? 'Cloud: checking...' : 'Cloud: not signed in';
     root.querySelector('#netLine').textContent = `${describeNetwork(network)}${!web && settings.wifiOnly && network.type !== 'wifi' ? ' - backup waits for Wi-Fi' : ''}`;
+    // 11/22 Keep a copy on my PC: only for someone signed in whose cloud backup is open
+    const pcOk = !!u && !['not_allowed', 'no_signin', 'signed_out', 'unreachable'].includes(s.phase);
+    const pc = root.querySelector('#pcCard');
+    if (pc.hidden === pcOk) { pc.hidden = !pcOk; if (pcOk) loadPcs(); }
+  }
+
+  // ---------- Keep a copy on my PC (PC links) ----------
+  async function loadPcs() {
+    const box = root.querySelector('#pcList');
+    try {
+      const { devices } = await cloudCall(account, '/v1/devices');
+      if (!alive) return;
+      box.innerHTML = devices.length ? devices.map((d) => `<div class="row"><span class="ico">${icons.database}</span><span class="txt"><b>${esc(d.name)}</b>
+        <span>Linked ${esc(new Date(d.created).toLocaleDateString())}${d.last ? ' · last copied ' + esc(new Date(d.last).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : ' · not used yet'}</span></span>
+        <button class="ghost-btn" data-pcrm="${esc(d.id)}">Remove</button></div>`).join('') : '';
+    } catch (e) { if (alive) box.innerHTML = `<p class="note">${esc(e.message || String(e))}</p>`; }
   }
 
   root.addEventListener('click', async (e) => {
@@ -145,6 +178,31 @@ export async function render(root, params, ctx) {
       return;
     }
     if (e.target.closest('#now')) { runner.kick({ now: true }); paint(); }
+    if (e.target.closest('#pcLink')) {
+      const btn = e.target.closest('#pcLink'), msg = root.querySelector('#pcMsg');
+      btn.disabled = true; msg.textContent = '';
+      try {
+        const name = (prompt('A name for this PC (so you can tell it apart later):', 'My PC') || 'My PC').slice(0, 40);
+        const r = await cloudCall(account, '/v1/devices', { method: 'POST', body: JSON.stringify({ name }) });
+        root.querySelector('#pcCodeBox').value = r.code;
+        root.querySelector('#pcCode').hidden = false;
+        loadPcs();
+      } catch (err) { msg.textContent = err.message || String(err); }
+      btn.disabled = false;
+      return;
+    }
+    if (e.target.closest('#pcCopy')) {
+      const box = root.querySelector('#pcCodeBox');
+      try { await navigator.clipboard.writeText(box.value); } catch (err) { box.select(); document.execCommand('copy'); }
+      root.querySelector('#pcMsg').textContent = 'Code copied - paste it into the PC helper.';
+      return;
+    }
+    const rm = e.target.closest('[data-pcrm]');
+    if (rm) {
+      if (!confirm('Remove this PC link? The PC stops copying new photos. Photos already on it stay there.')) return;
+      try { await cloudCall(account, '/v1/devices/' + rm.dataset.pcrm, { method: 'DELETE' }); root.querySelector('#pcCode').hidden = true; loadPcs(); }
+      catch (err) { root.querySelector('#pcMsg').textContent = err.message || String(err); }
+    }
   });
 
   // 11/22 remembered picks: how many small copies this phone keeps, and Forget my photos

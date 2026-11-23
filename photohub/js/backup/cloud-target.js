@@ -14,6 +14,16 @@ import { toBytes } from './sha256.js';
 export const CLOUD_URL = 'https://photohub-cloud.photohub-cloud.workers.dev';
 const base = () => globalThis.PH_CLOUD_URL || CLOUD_URL;   // tests point this at the service running on the PC
 
+/** 11/22 PC links: a signed-in call to the service (used by the Cloud page's "Keep a copy on my PC"). Throws with the service's words. */
+export async function cloudCall(account, path, init = {}) {
+  const tok = await account.token().catch(() => '');
+  if (!tok) throw new Error('Sign in first');
+  const r = await globalThis.fetch(base() + path, { ...init, headers: { ...(init.headers || {}), Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `The cloud answered ${r.status}`);
+  return j;
+}
+
 export function shaFromKey(key) {
   const s = String(key).split('/').pop();
   if (!/^[0-9a-f]{64}$/.test(s)) throw new Error('Not a photo key: ' + key);
