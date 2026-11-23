@@ -86,8 +86,13 @@ export async function forgetAll() {
 import * as mine from '../lib/mine.js';
 const sigOf = (i) => `${i.name}|${i.size}|${i.lastModified}`;
 export function listMyAlbums() {
-  return mine.albumList().map((a) => { const m = items.filter((i) => a.members.includes(sigOf(i)));
-    return { id: a.id, name: a.name, created: a.created, total: a.members.length, count: m.length, cover: m[0] || null }; });
+  const picked = new Set(items.map(sigOf));
+  return mine.albumList().map((a) => {
+    const m = items.filter((i) => a.members.includes(sigOf(i)));
+    const c = mine.cloudItems(a.id, (k) => picked.has(k));   // 11/22: album photos kept in the cloud show from there
+    const cloudOnly = Object.values(a.cloud).filter((t) => t > 0).length;
+    return { id: a.id, name: a.name, created: a.created, total: a.members.length + cloudOnly, count: m.length + c.length, cover: m[0] || c[0] || null };
+  });
 }
 export const createAlbum = mine.createAlbum, renameAlbum = mine.renameAlbum, deleteAlbum = mine.deleteAlbum, albumName = mine.albumName,
   albumsWith = mine.albumsWith, toggleInAlbum = mine.toggleInAlbum;
@@ -164,8 +169,13 @@ export async function addFiles(list) {
 
 function filtered({ type = 'all', bucketId = null, favoritesOnly = false, albumId = null } = {}) {
   const alb = albumId ? mine.albumList().find((a) => a.id === albumId) : null;
-  return items.filter((i) => (type === 'all' || i.type === type) && (!bucketId || i.bucketId === bucketId) && (!favoritesOnly || i.favorite)
+  const here = items.filter((i) => (type === 'all' || i.type === type) && (!bucketId || i.bucketId === bucketId) && (!favoritesOnly || i.favorite)
     && (!albumId || (alb && alb.members.includes(sigOf(i)))));
+  if (!alb || bucketId || favoritesOnly) return here;
+  // 11/22: an album's photos that are not picked this visit (or were put in on the phone) show from the cloud
+  const picked = new Set(items.map(sigOf));
+  const cloud = mine.cloudItems(albumId, (k) => picked.has(k)).filter((i) => type === 'all' || i.type === type);
+  return here.concat(cloud).sort((x, y) => y.date - x.date);
 }
 
 export async function listMedia(opts = {}) {

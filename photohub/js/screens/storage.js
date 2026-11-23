@@ -18,6 +18,7 @@ import { formatBytes, formatCount } from '../lib/timeline.js';
 import * as account from '../lib/account.js';
 import * as runner from '../backup/runner.js';
 import { cloudCall } from '../backup/cloud-target.js';
+import * as albumSync from '../lib/album-sync.js';
 
 export async function render(root, params, ctx) {
   let alive = true;
@@ -147,6 +148,11 @@ export async function render(root, params, ctx) {
         } else t += ' First background run within the hour.';
         extra.push(t);
       }
+    }
+    if (u) {   // 11/22 album sync
+      const al = albumSync.status();
+      if (al.error) extra.push(`Albums: not saved to the cloud yet - ${al.error}.`);
+      else if (al.last) extra.push(`Your albums are kept in the cloud too (saved ${new Date(al.last).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}) - they show on the web version, a new phone and your PC copy.`);
     }
     root.querySelector('#extra').textContent = extra.join(' ');
     const now = root.querySelector('#now');

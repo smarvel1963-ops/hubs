@@ -215,6 +215,7 @@ h1, h2, h3 { margin: 0; }
 .cell .dur svg { width: 11px; height: 11px; }
 .cell .fav { position: absolute; left: 4px; top: 4px; color: #ff5c8a; filter: drop-shadow(0 1px 2px #000); }
 .cell .fav svg { width: 14px; height: 14px; }
+.cell .incloud { position: absolute; right: 4px; top: 2px; font-size: 15px; color: #fff; text-shadow: 0 1px 3px #000; }   /* album photo kept in the cloud */
 .sentinel { height: 1px; }
 .empty { text-align: center; padding: 38px 18px; color: var(--muted); }
 .empty .ico { width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 20px; display: grid; place-items: center; background: rgba(61, 139, 255, 0.15); color: #8fc0ff; }

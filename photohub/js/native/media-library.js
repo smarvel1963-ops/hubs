@@ -4,6 +4,7 @@
 // web-library.js answers the same calls from those picked files (never fake photos, nothing uploaded).
 
 import * as web from './web-library.js';
+import { cloudThumbUrl } from '../lib/cloud-images.js';
 import * as mine from '../lib/mine.js';
 
 const cap = () => globalThis.Capacitor;
@@ -80,7 +81,7 @@ export function myAlbums() {
   return mine.albumList().map((a) => { const its = mine.albumItems(a.id); return { id: a.id, name: a.name, created: a.created, total: a.members.length, count: its.length, cover: its[0] || null }; });
 }
 /** true when the full-size photo is on hand (phone app: always; web: picked this visit). */
-export function hasFullFile(item) { return isNative() ? true : web.hasFile(item); }
+export function hasFullFile(item) { return item && item.cloud ? false : isNative() ? true : web.hasFile(item); }
 /** The full photo / video as a File, for the vault. Phone app: read from the phone (never uploaded). */
 export async function fileForVault(item) {
   if (!isNative()) return web.fileFor(item.id);
@@ -106,6 +107,7 @@ export async function openAppSettings() {
 
 /** Full-size image through Capacitor's content:// bridge (served from the phone, never uploaded). */
 export function fullImageUrl(item) {
+  if (item && item.cloud) return '';   // the viewer fetches cloud photos itself (lib/cloud-images.js)
   if (item && item.web) return web.fullUrl(item);
   return item && item.uri ? cap().convertFileSrc(item.uri) : '';
 }
@@ -124,6 +126,7 @@ function cacheKey(item) {
 
 /** Resolves to a URL the <img> can show, or '' when the phone has no thumbnail for it. */
 export function thumbnailUrl(item) {
+  if (item && item.cloud) return cloudThumbUrl(item);   // 11/22: an album photo kept only in the cloud
   if (item && item.web) return web.thumbUrl(item);
   const key = cacheKey(item);
   if (thumbCache.has(key)) return Promise.resolve(thumbCache.get(key));

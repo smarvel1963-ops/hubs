@@ -4,11 +4,12 @@
 // real cloud (cloud-target.js).
 //   Phone app: Auto Backup ON + signed in -> reads the whole phone library, newest first, and backs up what is not in the cloud yet,
 //              Wi-Fi only unless the person turns that off. Runs when the app opens, comes back to the front, every 5 minutes while
-//              open, and when the switch or the sign-in changes. (Backup while the app is closed needs Android's background worker -
-//              a later step; the Cloud screen says "while Photo Hub is open".)
+//              open, and when the switch or the sign-in changes. (Backup while the app is closed: android BackupWorker, 0.4.0 - see below.)
 //   Web version (PC / iPhone / Android browser): backs up the photos picked this visit - automatically when Auto Backup is on, or with
 //              the "Back up now" button. A browser can't tell Wi-Fi from mobile data, so Wi-Fi only does not apply there.
 // Files over 95 MB (long videos) are left out for now and counted, never silently skipped.
+// 11/22 ALBUM SYNC (lib/album-sync.js): this file also tells the album sync which cloud photo each phone photo is (from the journal)
+// and runs it after every pass, so a photo put in an album joins the cloud album once it is backed up.
 
 import { BackupEngine, SKIP } from './backup-engine.js';
 import { CloudTarget, cloudBase } from './cloud-target.js';
@@ -19,11 +20,15 @@ import { isNative, listMedia, fullImageUrl } from '../native/media-library.js';
 import * as web from '../native/web-library.js';
 import { getNetwork, onNetworkChange } from '../native/network.js';
 import { loadSettings } from '../lib/settings.js';
+import * as albumSync from '../lib/album-sync.js';
+import { sigOf } from '../lib/mine.js';
 
 export const MAX_BYTES = 95 * 1024 * 1024;
 const EVERY_MS = 5 * 60 * 1000;
 
 const byId = new Map();
+const keyToId = new Map();   // album key (web version: name|size|date) -> photo id, from the scan
+let shaToIds = null;         // sha256 -> [photo id], from the journal on first use, kept current as photos back up
 let engine = null, target = null;
 let network = { connected: true, type: 'unknown' };
 let running = null, again = false, nowOnce = false, started = false;
@@ -70,7 +75,7 @@ function makeEngine() {
     getSettings: () => (nowOnce ? { ...settings(), backupEnabled: true } : settings()),
     getNetwork: () => network,
     onEvent: (type, data) => {
-      if (type === 'backed_up' && data) tellBackground(data.id);
+      if (type === 'backed_up' && data) { tellBackground(data.id); noteSha(data.id); }
       if (type === 'backed_up' || type === 'failed') { st.summary = engine.summary(); notify(true); }
     },
   });
@@ -91,12 +96,28 @@ async function scan() {
     }
   } else {
     const r = await web.listMedia({ type: 'all', offset: 0, limit: 100000 });
-    for (const it of r.items || []) if (web.hasFile(it)) all.push(it);
+    for (const it of r.items || []) if (web.hasFile(it)) { all.push(it); byId.set(String(it.id), it); keyToId.set(sigOf(it), String(it.id)); }
   }
   const fits = all.filter((it) => !(Number(it.size) > MAX_BYTES));
   st.tooBig = all.length - fits.length;
   await engine.addPhotos(fits);
 }
+
+// ---------- 11/22 ALBUM SYNC: which cloud photo (SHA-256) a phone photo is, and the other way round ----------
+function shaForKey(key) {
+  if (!engine) return null;
+  const id = String(key).startsWith('n:') ? String(key).slice(2) : keyToId.get(key);
+  if (id === undefined || id === null) return null;
+  const r = engine.record(id);
+  return r && r.status === 'backed_up' && r.sha256 ? r.sha256 : null;
+}
+function addSha(sha, id) { const l = shaToIds.get(sha) || []; if (!l.includes(String(id))) l.push(String(id)); shaToIds.set(sha, l); }
+function itemsForSha(sha) {
+  if (!engine) return [];
+  if (!shaToIds) { shaToIds = new Map(); for (const r of engine.records()) if (r.status === 'backed_up' && r.sha256) addSha(r.sha256, r.id); }
+  return (shaToIds.get(sha) || []).map((id) => byId.get(id)).filter(Boolean);
+}
+function noteSha(id) { if (!shaToIds || !engine) return; const r = engine.record(id); if (r && r.sha256) addSha(r.sha256, id); }
 
 // ---------- 0.4.0 BACKGROUND BACKUP (android BackupWorker): keeps going about every hour with the app closed ----------
 // The phone app tells the native side whether Auto Backup is on (and Wi-Fi only), and which photos it already backed up so the
@@ -162,18 +183,21 @@ export function kick({ now = false } = {}) {
       again = false;
       try { await pass(); } catch (e) { phase('unreachable', (e && e.message) || String(e)); }
       await bgConfigure();
+      await albumSync.sync();   // never throws
     } while (again);
   })().finally(() => { running = null; nowOnce = false; });
   return running;
 }
 
 /** Sign-out, or the Auto Backup switch turned off: forget this session's engine so the next sign-in starts clean. */
-export function reset() { engine = null; target = null; st.summary = null; st.me = null; phase('idle'); }
+export function reset() { engine = null; target = null; shaToIds = null; keyToId.clear(); st.summary = null; st.me = null; phase('idle'); }
 
 /** Called once by app.js. */
 export async function start() {
   if (started) return;
   started = true;
+  albumSync.setLookups({ shaForKey, itemsForSha });
+  albumSync.start();
   await account.init();
   let seen = account.current() ? account.current().uid : null;
   account.onChange((u) => { const id = u ? u.uid : null; if (id === seen) return; seen = id; reset(); kick(); });

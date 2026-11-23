@@ -8,6 +8,7 @@ import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, thumbnailUrl, fullImageUrl, heart, myAlbums, hasFullFile } from '../native/media-library.js';
 import { pending as vaultPending } from './vault.js';
 import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum } from '../lib/mine.js';
+import { cloudFullUrl } from '../lib/cloud-images.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 
@@ -51,8 +52,8 @@ export async function render(root, params, ctx) {
     if (chip) ctx.go(chip.dataset.go);
   });
 
-  // ---------- no access yet ----------
-  if (!canRead(access)) {
+  // ---------- no access yet ----------  (11/22: the web version opens one of your albums anyway - its photos come from the cloud)
+  if (!canRead(access) && !(albumId && access.web)) {
     const unavailable = access.state === 'unavailable';
     list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div>
       <b>${unavailable ? 'Your photos show up in the phone app' : 'See your photos here'}</b>
@@ -107,6 +108,7 @@ export async function render(root, params, ctx) {
       <img alt="">
       ${it.favorite ? `<span class="fav">${icons.heart}</span>` : ''}
       ${it.type === 'video' ? `<span class="dur">${icons.play}${esc(formatDuration(it.durationMs))}</span>` : ''}
+      ${it.cloud ? '<span class="incloud" title="In the cloud">&#9729;</span>' : ''}
     </button>`;
   }
 
@@ -192,13 +194,23 @@ export function openViewer(item) {
   v.className = 'viewer';
   const when = new Date(item.date);
   const dims = item.width && item.height ? `${item.width} x ${item.height}` : '';
-  // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here
-  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${true ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button>${hasFullFile(item) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}` : ''}</div>
-    <div class="stage">${isVideo ? (hasFullFile(item) ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : item.web ? `<img alt="" src="${esc(fullImageUrl(item))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
-    ${!hasFullFile(item) ? `<div class="small-note">Small copy - pick this photo again to see it full size${item.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
+  // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here.
+  // 11/22 album sync: an album photo kept only in the cloud (put in on another phone) is fetched from the cloud to show it.
+  const cloud = !!item.cloud;
+  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : true ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button>${hasFullFile(item) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}` : ''}</div>
+    <div class="stage">${cloud ? '<div class="loading">Loading from the cloud...</div>' : isVideo ? (hasFullFile(item) ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : item.web ? `<img alt="" src="${esc(fullImageUrl(item))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
+    ${cloud ? '<div class="small-note">Kept in your cloud backup - this photo is in the album on another phone or the web.</div>' : !hasFullFile(item) ? `<div class="small-note">Small copy - pick this photo again to see it full size${item.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
     <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${item.favorite ? ' &middot; Favorite' : ''}<br>
       ${esc(item.name || '')}<br>${esc([formatBytes(item.size), dims, item.bucketName, isVideo ? formatDuration(item.durationMs) : ''].filter(Boolean).join(' · '))}</div>`;
-  v.querySelector('button').addEventListener('click', () => v.remove());
+  let cloudUrl = '';
+  v.querySelector('button').addEventListener('click', () => { v.remove(); if (cloudUrl) URL.revokeObjectURL(cloudUrl); });
+  if (cloud) {
+    cloudFullUrl(item).then((url) => {
+      cloudUrl = url;
+      if (!v.isConnected) { URL.revokeObjectURL(url); return; }
+      v.querySelector('.stage').innerHTML = isVideo ? `<video src="${esc(url)}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<img alt="" src="${esc(url)}">`;
+    }).catch((e) => { const st = v.querySelector('.stage'); if (st) st.innerHTML = `<div class="empty"><b>Could not load it</b>${esc(e.message || e)}</div>`; });
+  }
   const tv = v.querySelector('#tovault');
   if (tv) tv.addEventListener('click', () => { vaultPending.item = item; v.remove(); location.hash = '#vault'; });
   const ta = v.querySelector('#toalbum');

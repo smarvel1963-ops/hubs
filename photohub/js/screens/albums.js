@@ -25,13 +25,15 @@ function card({ key = '', name, icon, sub, hash = '', later = '' }) {
 export async function render(root, params, ctx) {
   let alive = true;
   const readable = canRead(ctx.access);
+  // 11/22 album sync: the web version shows your albums even before you pick anything - their photos come from the cloud
+  const showMine = readable || (ctx.access.web && myAlbums().length > 0);
 
   root.innerHTML = `<div class="screen">
     <div class="subbar"><h1>Albums</h1></div>
     ${readable ? '' : `<div class="empty"><div class="ico">${icons.image}</div><b>Your albums show up here</b>
       ${ctx.access.web ? 'Pick photos from your phone and Photo Hub sorts them into albums by month.' : ctx.access.state === 'unavailable' ? 'Open Photo Hub on your Android phone.' : 'Allow photo access to see your phone\'s albums.'}
       ${ctx.access.state === 'unavailable' ? '' : `<button class="primary-btn" id="ask">${ctx.access.web ? 'Pick photos' : 'Allow photo access'}</button>`}</div>`}
-    ${readable ? `<div class="section-title">Your albums</div>
+    ${showMine ? `<div class="section-title">Your albums</div>
     <div class="album-grid" id="mine"><button class="album-card new-album" id="newAlbum"><span class="ph">+</span><span class="meta"><b>New album</b><span>Make your own</span></span></button>
       ${myAlbums().map((a) => card({ key: `m-${a.id}`, name: a.name, icon: 'image', sub: a.count ? `${formatCount(a.count)} ${a.count === 1 ? 'item' : 'items'}` : (a.total ? `${a.total} saved - pick them to see` : 'Empty'), hash: `#photos?type=all&album=${encodeURIComponent(a.id)}` })).join('')}</div>` : ''}
     <div class="section-title">${ctx.access.web ? 'Your picks' : 'On this phone'}</div>
@@ -62,12 +64,19 @@ export async function render(root, params, ctx) {
     else if (b.dataset.go) ctx.go(b.dataset.go);
   });
 
-  if (!readable) return () => { alive = false; };
+  // 11/22 album sync: albums that change on another phone (or the web) show up here without leaving the screen
+  const onAlbums = () => { if (alive && !document.querySelector('.sheet-backdrop')) ctx.rerender(); };
+  globalThis.addEventListener('photohub:albums', onAlbums);
+  const stop = () => { alive = false; globalThis.removeEventListener('photohub:albums', onAlbums); };
 
   const addCover = async (cardEl, item) => {
     const url = await thumbnailUrl(item);
     if (alive && url && cardEl) cardEl.insertAdjacentHTML('afterbegin', `<img alt="" src="${esc(url)}">`);
   };
+  if (!readable) {
+    if (showMine) for (const a of myAlbums()) if (a.cover) addCover(root.querySelector(`[data-card="m-${CSS.escape(a.id)}"]`), a.cover);
+    return stop;
+  }
 
   getLibrarySummary().then((s) => {
     if (!alive) return;
@@ -83,7 +92,7 @@ export async function render(root, params, ctx) {
 
   try {
     const { albums } = await listAlbums();
-    if (!alive) return null;
+    if (!alive) return stop;
     const box = root.querySelector('#folders');
     if (!albums.length) {
       box.innerHTML = '<div class="note">No folders with photos yet.</div>';
@@ -100,5 +109,5 @@ export async function render(root, params, ctx) {
   } catch (e) {
     root.querySelector('#folders').innerHTML = `<div class="note">Could not read albums: ${esc(e.message || e)}</div>`;
   }
-  return () => { alive = false; };
+  return stop;
 }
