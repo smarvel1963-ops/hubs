@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- SAVE AS: privacy.html · LOCATION: C:/MarvelApps/photohub/www/privacy.html
+     Photo Hub privacy policy (11/23, for the Play closed test - Scott: "Yes, start closed test"). Plain words; only claims the code
+     actually backs. Change it together with the Play Data safety answers (C:/MarvelApps/photohub/docs/PLAY_LISTING.md) whenever a data
+     flow changes. Served at https://smarvel1963-ops.github.io/hubs/photohub/privacy.html -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Photo Hub Privacy</title>
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <style>
+    :root { --bg: #f4f6ff; --fg: #171a3a; --dim: #5d6488; --accent: #5b4cf0; --line: rgba(70, 80, 150, .16); }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0d1030; --fg: #e8ecff; --dim: #a3abd0; --accent: #a99cff; --line: rgba(255, 255, 255, .14); } }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 28px 16px 60px; }
+    h1 { font-size: 28px; margin: 0 0 4px; } h2 { font-size: 19px; margin: 28px 0 6px; }
+    .dim { color: var(--dim); font-size: 14px; } a { color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; } td, th { text-align: left; vertical-align: top; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+    th { font-size: 13px; color: var(--dim); font-weight: 600; }
+  </style>
+</head>
+<body><main>
+  <h1>Photo Hub privacy policy</h1>
+  <p class="dim">Photo Hub is an app by Marvel Corp. Last updated November 23, 2026.</p>
+
+  <h2>The short version</h2>
+  <p>Your photos and videos are yours. Photo Hub shows and sorts them on your phone. Nothing leaves your phone unless you turn on
+    Cloud Backup or link your own PC. There are no ads, no tracking and no selling of data, ever.</p>
+
+  <h2>What stays on your phone</h2>
+  <ul>
+    <li><b>Your photo library.</b> Photo Hub reads your photos and videos to show them. It never changes, moves or deletes them.</li>
+    <li><b>Albums, hearts and settings</b> you make in the app.</li>
+    <li><b>Where photos were taken.</b> Places reads the location saved inside each photo and names the town using a list of towns
+      built into the app. That happens on your phone; no location is sent anywhere for it.</li>
+    <li><b>The Private Vault.</b> Photos you put in the Vault are locked on your phone with your code. They are never uploaded.</li>
+  </ul>
+
+  <h2>What leaves your phone, and why</h2>
+  <table>
+    <tr><th>What</th><th>When</th><th>Where it goes</th></tr>
+    <tr><td>Your name, email address and Google account ID</td><td>Only if you sign in with Google (needed for Cloud Backup)</td>
+      <td>Google's sign-in service (Firebase Authentication) and Marvel Corp's backup service, to know whose backup is whose</td></tr>
+    <tr><td>Copies of your photos and videos, with what is saved inside them (such as the date, the camera and where they were taken),
+      plus your album names and which photos are in each album</td>
+      <td>Only if you turn on Cloud Backup</td>
+      <td>Marvel Corp's backup service (run on Cloudflare) stores them in a private storage bucket at Backblaze in the United States.
+        They travel encrypted (HTTPS) and are stored encrypted (AES-256). Each person's backup is kept apart, and only you can reach it.</td></tr>
+    <tr><td>Copies of your photos</td><td>Only if you link your own PC</td>
+      <td>Your own computer: over your home Wi-Fi, or from your cloud backup with a read-only link code you create and can remove.</td></tr>
+  </table>
+  <p>Backblaze and Cloudflare store and carry the data for us as service providers. They do not use it for anything else. We do not
+    share your data with anyone else.</p>
+
+  <h2 id="delete">Delete your backups and account</h2>
+  <p>To delete your cloud backups and your Photo Hub account, email <a href="mailto:smarvel1963@gmail.com?subject=Delete%20my%20Photo%20Hub%20account">smarvel1963@gmail.com</a>
+    from the Google account you signed in with, with the subject "Delete my Photo Hub account". We delete your backed-up photos,
+    videos, albums and PC links and confirm by email. Deleted files are gone for good 30 days later (storage keeps them that long in
+    case of a mistake). The photos on your phone are not touched. You can also open this page from Photo Hub: Cloud, then
+    "Delete my account and backups".</p>
+  <p>To remove Photo Hub from your phone and everything it keeps there, uninstall the app.</p>
+
+  <h2>Children</h2>
+  <p>Photo Hub is not made for children under 13.</p>
+
+  <h2>Selling data</h2>
+  <p>We do not sell your data, show ads, or use your photos to train anything.</p>
+
+  <h2>Changes</h2>
+  <p>If what leaves your phone changes, this page changes first, with a new date at the top.</p>
+
+  <h2>Contact</h2>
+  <p>Questions: <a href="mailto:smarvel1963@gmail.com">smarvel1963@gmail.com</a>.</p>
+</main></body>
+</html>

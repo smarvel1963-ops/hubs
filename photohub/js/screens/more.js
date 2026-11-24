@@ -1,9 +1,13 @@
 // more.js - C:\MarvelApps\photohub\www\js\screens\more.js
-// More: photo access status (and a way to turn it on), Smart Storage, sign-in (later), and what this test build is.
+// More: photo access status (and a way to turn it on), Cloud Backup (with Google sign-in), the privacy policy, and what this build is.
+// 11/23 (Play closed test, Scott: "Yes, start closed test"): the old "Sign in - Later" row and the "uploads nothing" note were out of
+// date since Cloud Backup (0.3.0); the privacy policy is linked here and from the Cloud page.
 
 import { icons } from '../icons.js';
-import { comingLater, askForPhotoAccess, openSheet } from '../ui.js';
-import { canRead } from '../native/media-library.js';
+import { askForPhotoAccess, openSheet } from '../ui.js';
+import { canRead, isNative } from '../native/media-library.js';
+
+export const PRIVACY_URL = 'https://smarvel1963-ops.github.io/hubs/photohub/privacy.html';
 
 const ACCESS_TEXT = {
   granted: 'Allowed - Photo Hub can read your photos and videos',
@@ -22,13 +26,13 @@ export async function render(root, params, ctx) {
       <span class="txt"><b>Photo access</b><span>${ACCESS_TEXT[st] || st}</span></span>
       ${canRead(ctx.access) && st === 'granted' ? '<span class="badge ok">On</span>' : icons.chevron}</button>
     <button class="row" data-go="#storage"><span class="ico">${icons.cloudUp}</span>
-      <span class="txt"><b>Smart Storage</b><span>Backup settings and storage</span></span>${icons.chevron}</button>
-    <button class="row" data-later="account"><span class="ico">${icons.user}</span>
-      <span class="txt"><b>Sign in</b><span>With Google</span></span><span class="badge">Later</span></button>
+      <span class="txt"><b>Cloud Backup</b><span>Google sign-in, backup settings and storage</span></span>${icons.chevron}</button>
+    <button class="row" id="privacy"><span class="ico">${icons.lock}</span>
+      <span class="txt"><b>Privacy policy</b><span>What stays on your phone and what doesn't</span></span>${icons.chevron}</button>
     <button class="row" id="about"><span class="ico">${icons.info}</span>
       <span class="txt"><b>About this build</b><span>Photo Hub ${ctx.version}</span></span>${icons.chevron}</button>
-    <p class="note">Photo Hub by Marvel Corp. This test build reads your photos on the phone only. It uploads nothing and
-      deletes nothing.</p>
+    <p class="note">Photo Hub by Marvel Corp. Your photos stay on your phone unless you turn on Cloud Backup or link your own PC.
+      Photo Hub never deletes a photo from your phone.</p>
   </div>`;
 
   root.addEventListener('click', async (e) => {
@@ -39,19 +43,21 @@ export async function render(root, params, ctx) {
       const a = await askForPhotoAccess(ctx.access);
       ctx.setAccess(a);
       ctx.rerender();
+    } else if (b.id === 'privacy') {
+      window.open(isNative() ? PRIVACY_URL : './privacy.html', '_blank', 'noopener');
     } else if (b.id === 'about') {
       openSheet({
         icon: 'info',
-        title: 'Photo Hub - Phase 1 skeleton',
-        body: `Version ${ctx.version}. Town names in Places come from GeoNames (geonames.org), shared under CC BY 4.0.`,
+        title: 'Photo Hub',
+        body: `Version ${ctx.version}. By Marvel Corp. Town names in Places come from GeoNames (geonames.org), shared under CC BY 4.0.`,
         list: [
-          'Real: your photo library (read only), Smart Storage settings, the backup engine with its safety tests.',
-          'Not connected yet: the cloud (Backblaze B2) and Google sign-in.',
-          'Not built yet: Free Up Phone Space - it comes after the never-lose-a-photo tests.',
+          'Your library: read only - Photo Hub never changes, moves or deletes a photo.',
+          'Cloud Backup (optional, Google sign-in): private, encrypted copies in the United States. Invite-only during testing.',
+          'Albums, Places, the Private Vault and hearts are kept on your phone.',
+          'Coming later: Free Up Phone Space, People and Trips.',
         ],
       });
-    } else if (b.dataset.later) comingLater(b.dataset.later);
-    else if (b.dataset.go) ctx.go(b.dataset.go);
+    } else if (b.dataset.go) ctx.go(b.dataset.go);
   });
   return null;
 }

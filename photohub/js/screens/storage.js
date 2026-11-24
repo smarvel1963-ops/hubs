@@ -19,6 +19,7 @@ import * as account from '../lib/account.js';
 import * as runner from '../backup/runner.js';
 import { cloudCall } from '../backup/cloud-target.js';
 import * as albumSync from '../lib/album-sync.js';
+import { PRIVACY_URL } from './more.js';
 
 export async function render(root, params, ctx) {
   let alive = true;
@@ -132,7 +133,8 @@ export async function render(root, params, ctx) {
     root.querySelector('#why').textContent = statusText(s);
     const acct = root.querySelector('#acct');
     if (!account.available()) acct.innerHTML = '';
-    else if (u) acct.innerHTML = `<span class="note">Signed in as <b>${esc(u.email || u.name || 'you')}</b></span> <button class="ghost-btn" id="out">Sign out</button>`;
+    else if (u) acct.innerHTML = `<span class="note">Signed in as <b>${esc(u.email || u.name || 'you')}</b></span> <button class="ghost-btn" id="out">Sign out</button>
+      <button class="ghost-btn" id="delacct">Delete my account and backups</button>`;
     else acct.innerHTML = `<button class="primary-btn" id="in">Sign in with Google</button>`;
     const extra = [];
     if (s.tooBig) extra.push(`${formatCount(s.tooBig)} video${s.tooBig === 1 ? '' : 's'} over 95 MB wait for a later update.`);
@@ -189,6 +191,10 @@ export async function render(root, params, ctx) {
       try { await account.signIn(); runner.kick(); } catch (err) { root.querySelector('#why').textContent = err.message || String(err); }
       btn.disabled = false;
       paint();
+      return;
+    }
+    if (e.target.closest('#delacct')) {   // 11/23 Play: account deletion must be reachable in the app - opens the privacy page's steps
+      window.open(web ? './privacy.html#delete' : PRIVACY_URL + '#delete', '_blank', 'noopener');
       return;
     }
     if (e.target.closest('#out')) {

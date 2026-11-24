@@ -16,7 +16,7 @@ import * as memories from './screens/memories.js';
 import * as placesScreen from './screens/places.js';
 import * as runner from './backup/runner.js';
 
-export const APP_VERSION = '0.7.0';
+export const APP_VERSION = '0.7.1';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
