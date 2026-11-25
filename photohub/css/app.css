@@ -248,7 +248,7 @@ h1, h2, h3 { margin: 0; }
 
 /* ---------- viewer ---------- */
 .viewer { position: fixed; inset: 0; z-index: 40; background: #000; display: flex; flex-direction: column; }
-.viewer .top { display: flex; align-items: center; padding: 8px; }
+.viewer .top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; justify-content: flex-end; padding: 8px; }   /* 11/24: Tags + Share made the row too wide for a phone - it wraps instead of running off the screen */
 .viewer .stage { flex: 1; display: grid; place-items: center; min-height: 0; }
 .viewer .stage img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .viewer .info { padding: 12px 16px 18px; font-size: 13px; color: #cfd8f5; background: rgba(10, 20, 50, 0.9); }

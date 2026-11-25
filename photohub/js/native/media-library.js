@@ -173,3 +173,22 @@ async function flush() {
 
 /** Web version only: true when Photo Hub runs in a browser (the person picks photos). */
 export function isWebVersion() { return !isNative(); }
+// 11/24 SHARE (plan step 3, Scott "he will finish photo app"): the phone's own share menu - text, email, Facebook... Phone app: the
+// MediaLibrary plugin hands Android the original photos (nothing copied or sent by Photo Hub). Web version: the browser's share menu with
+// the picked files (only the ones picked this visit - a remembered small copy needs picking again).
+//   -> 'shared' | 'cancel' | 'nofile' (web: pick it again) | 'unsupported' (this browser can't share files) | 'failed'
+export function canShare(item) {
+  if (!item || item.cloud) return false;
+  return isNative() || (web.hasFile(item) && typeof navigator !== 'undefined' && typeof navigator.share === 'function');
+}
+export async function shareItems(items) {
+  const list = (items || []).filter((i) => i && !i.cloud);
+  if (!list.length) return 'nofile';
+  if (isNative()) {
+    try { await lib().share({ items: list.map((i) => ({ id: String(i.id), type: i.type })) }); return 'shared'; } catch (e) { return 'failed'; }
+  }
+  const files = list.map((i) => web.fileFor(i.id)).filter(Boolean);
+  if (!files.length) return 'nofile';
+  if (typeof navigator.share !== 'function' || (navigator.canShare && !navigator.canShare({ files }))) return 'unsupported';
+  try { await navigator.share({ files }); return 'shared'; } catch (e) { return e && e.name === 'AbortError' ? 'cancel' : 'failed'; }
+}

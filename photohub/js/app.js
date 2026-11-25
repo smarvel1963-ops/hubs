@@ -17,7 +17,7 @@ import * as placesScreen from './screens/places.js';
 import * as tripsScreen from './screens/trips.js';
 import * as runner from './backup/runner.js';
 
-export const APP_VERSION = '0.7.4';
+export const APP_VERSION = '0.7.5';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {

@@ -6,7 +6,7 @@
 
 import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
-import { canRead, listMedia, thumbnailUrl, fullImageUrl, heart, myAlbums, hasFullFile } from '../native/media-library.js';
+import { canRead, listMedia, thumbnailUrl, fullImageUrl, heart, myAlbums, hasFullFile, canShare, shareItems } from '../native/media-library.js';
 import { pending as vaultPending } from './vault.js';
 import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum, addManyToAlbum, removeManyFromAlbum } from '../lib/mine.js';
 import { cloudFullUrl } from '../lib/cloud-images.js';
@@ -47,7 +47,7 @@ export async function render(root, params, ctx) {
     <div id="status"></div>
     <div class="selbar" id="selbar" hidden><button class="icon-btn" id="selX" aria-label="Stop selecting">${icons.close}</button>
       <b id="selN">Tap photos to pick them</b><span style="flex:1"></span><button class="pill-btn" id="selAll">All</button>
-      ${albumId ? '<button class="pill-btn" id="selOut">Take out</button>' : tagKey ? '<button class="pill-btn" id="selUntag">Remove tag</button>' : ''}<button class="pill-btn" id="selTag">Tag</button><button class="primary-btn" id="selAdd">Add to album</button></div>
+      ${albumId ? '<button class="pill-btn" id="selOut">Take out</button>' : tagKey ? '<button class="pill-btn" id="selUntag">Remove tag</button>' : ''}<button class="pill-btn" id="selShare">Share</button><button class="pill-btn" id="selTag">Tag</button><button class="primary-btn" id="selAdd">Add to album</button></div>
   </div>`;
 
   const list = root.querySelector('#list');
@@ -211,7 +211,7 @@ export async function render(root, params, ctx) {
   function paintSel() {
     root.querySelector('#selN').textContent = picked.size ? `${formatCount(picked.size)} selected` : 'Tap photos to pick them';
     root.querySelector('#selAdd').disabled = !picked.size;
-    for (const id of ['#selOut', '#selTag', '#selUntag']) { const b = root.querySelector(id); if (b) b.disabled = !picked.size; }
+    for (const id of ['#selOut', '#selTag', '#selUntag', '#selShare']) { const b = root.querySelector(id); if (b) b.disabled = !picked.size; }
   }
   function setSelecting(on) {
     selecting = on;
@@ -265,6 +265,7 @@ export async function render(root, params, ctx) {
   });
   const pickedItems = () => [...picked].map((id) => byId.get(id)).filter(Boolean);
   root.querySelector('#selAdd').addEventListener('click', () => albumPickerMany(pickedItems(), () => setSelecting(false)));
+  root.querySelector('#selShare').addEventListener('click', async () => { const r = await shareItems(pickedItems()); if (r === 'shared') setSelecting(false); shareNote(r); });
   root.querySelector('#selTag').addEventListener('click', async () => {
     const items = pickedItems();
     const text = await askText({ title: `Tag ${formatCount(items.length)} ${items.length === 1 ? 'photo' : 'photos'}`, label: 'A word or a few - like "beach" or "grandkids". Commas make more than one tag.', ok: 'Tag' });
@@ -306,7 +307,7 @@ export function openViewer(item) {
   // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here.
   // 11/22 album sync: an album photo kept only in the cloud (put in on another phone) is fetched from the cloud to show it.
   const cloud = !!item.cloud;
-  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : true ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="totags">${icons.tag} Tags</button>${hasFullFile(item) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}` : ''}</div>
+  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : true ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="totags">${icons.tag} Tags</button>${canShare(item) ? `<button class="pill-btn" id="toshare">${icons.share} Share</button>` : ''}${hasFullFile(item) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}` : ''}</div>
     <div class="stage">${cloud ? '<div class="loading">Loading from the cloud...</div>' : isVideo ? (hasFullFile(item) ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : item.web ? `<img alt="" src="${esc(fullImageUrl(item))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
     ${cloud ? '<div class="small-note">Kept in your cloud backup - this photo is in the album on another phone or the web.</div>' : !hasFullFile(item) ? `<div class="small-note">Small copy - pick this photo again to see it full size${item.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
     <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${item.favorite ? ' &middot; Favorite' : ''}<br>
@@ -327,6 +328,8 @@ export function openViewer(item) {
   if (ta) ta.addEventListener('click', () => albumPicker(item));
   const paintTags = () => { const el = v.querySelector('#vtags'); if (el) el.innerHTML = cloud ? '' : tagsOf(item).map((x) => `<span>#${esc(x)}</span>`).join(''); };
   paintTags();
+  const sh = v.querySelector('#toshare');
+  if (sh) sh.addEventListener('click', async () => shareNote(await shareItems([item])));
   const tg = v.querySelector('#totags');
   if (tg) tg.addEventListener('click', () => tagSheet(item, paintTags));
   const hb = v.querySelector('#heart');
@@ -385,6 +388,12 @@ function tagSheet(item, done) {
   });
   draw();
   document.body.appendChild(back);
+}
+// 11/24 Share: what to say when the share menu could not open (nothing to say when it did or was closed)
+function shareNote(r) {
+  if (r === 'nofile') note('Pick this photo again to share it full size');
+  else if (r === 'unsupported') note("This browser can't share photos - share it from your phone's gallery");
+  else if (r === 'failed') note('Could not open the share menu - try again');
 }
 function note(text) {
   const t = document.createElement('div');
