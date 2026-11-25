@@ -41,7 +41,8 @@
     <li><b>Pets.</b> In the Android app, Photo Hub finds dogs, cats and other pets with Google's image labels (ML Kit), which run on your
       phone. Your photos and what is found in them never leave your phone.</li>
     <li><b>Where photos were taken.</b> Places and Trips read the location saved inside each photo and names the town using a list of towns
-      built into the app. That happens on your phone; no location is sent anywhere for it.</li>
+      built into the app. That happens on your phone. With Cloud Backup on, the place of each backed-up photo (rounded to about a kilometer)
+      is kept with your backup too, so Trips can show trips whose photos are only in your cloud.</li>
     <li><b>The Private Vault.</b> Photos you put in the Vault are locked on your phone with your code. They are never uploaded.</li>
   </ul>
 
@@ -51,7 +52,7 @@
     <tr><td>Your name, email address and Google account ID</td><td>Only if you sign in with Google (needed for Cloud Backup)</td>
       <td>Google's sign-in service (Firebase Authentication) and Marvel Corp's backup service, to know whose backup is whose</td></tr>
     <tr><td>Copies of your photos and videos, with what is saved inside them (such as the date, the camera and where they were taken),
-      plus your album names and which photos are in each album</td>
+      plus your album names and which photos are in each album, and where each backed-up photo was taken (rounded to about a kilometer, for Trips)</td>
       <td>Only if you turn on Cloud Backup</td>
       <td>Marvel Corp's backup service (run on Cloudflare) stores them in a private storage bucket at Backblaze in the United States.
         They travel encrypted (HTTPS) and are stored encrypted (AES-256). Each person's backup is kept apart, and only you can reach it.</td></tr>

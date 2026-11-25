@@ -21,6 +21,8 @@ import * as web from '../native/web-library.js';
 import { getNetwork, onNetworkChange } from '../native/network.js';
 import { loadSettings } from '../lib/settings.js';
 import * as albumSync from '../lib/album-sync.js';
+import * as placeSync from '../lib/place-sync.js';   // 11/25 Trips from the cloud
+import * as places from '../lib/places.js';
 import { sigOf } from '../lib/mine.js';
 
 export const MAX_BYTES = 95 * 1024 * 1024;
@@ -196,6 +198,7 @@ export function kick({ now = false } = {}) {
       try { await pass(); } catch (e) { phase('unreachable', (e && e.message) || String(e)); }
       await bgConfigure();
       await albumSync.sync();   // never throws
+      placeSync.soon(1000);     // 11/25: places of newly backed-up photos go to the cloud (Trips from the cloud)
     } while (again);
   })().finally(() => { running = null; nowOnce = false; });
   return running;
@@ -210,6 +213,8 @@ export async function start() {
   started = true;
   albumSync.setLookups({ shaForKey, itemsForSha });
   albumSync.start();
+  placeSync.setLookups({ shaForKey, itemsForSha });
+  places.onChange((ps) => { if (ps.done && !ps.running) placeSync.soon(); });   // Places read new photos: send their places
   await account.init();
   let seen = account.current() ? account.current().uid : null;
   account.onChange((u) => { const id = u ? u.uid : null; if (id === seen) return; seen = id; reset(); kick(); });

@@ -103,7 +103,7 @@ export async function render(root, params, ctx) {
   });
 
   // ---------- no access yet ----------  (11/22: the web version opens one of your albums anyway - its photos come from the cloud)
-  if (!canRead(access) && !(albumId && access.web)) {
+  if (!canRead(access) && !((albumId || tripId) && access.web)) {   // 11/25: a trip too (Trips from the cloud)
     const unavailable = access.state === 'unavailable';
     list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div>
       <b>${unavailable ? 'Your photos show up in the phone app' : 'See your photos here'}</b>
@@ -345,7 +345,7 @@ export function openViewer(item, nav = null) {
     const cloud = !!it.cloud;
     body.innerHTML = `<div class="top"><button class="icon-btn" id="vclose" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : `<button class="pill-btn heart-btn ${it.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${it.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="totags">${icons.tag} Tags</button>${canShare(it) ? `<button class="pill-btn" id="toshare">${icons.share} Share</button>` : ''}${hasFullFile(it) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}`}</div>
       <div class="stage">${cloud ? '<div class="loading">Loading from the cloud...</div>' : isVideo ? (hasFullFile(it) ? `<video src="${esc(fullImageUrl(it))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : it.web ? `<img alt="" draggable="false" src="${esc(fullImageUrl(it))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" draggable="false" src="${esc(fullImageUrl(it))}">`}</div>
-      ${cloud ? '<div class="small-note">Kept in your cloud backup - this photo is in the album on another phone or the web.</div>' : !hasFullFile(it) ? `<div class="small-note">Small copy - pick this photo again to see it full size${it.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
+      ${cloud ? '<div class="small-note">Kept in your cloud backup - shown from the cloud (it is not on this phone or picked here).</div>' : !hasFullFile(it) ? `<div class="small-note">Small copy - pick this photo again to see it full size${it.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
       <div class="info"><b>${esc(formatDayLabel(it.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${it.favorite ? ' &middot; Favorite' : ''}${nav ? `<span class="vpos">${at() + 1} of ${formatCount(list().length)}${nav.hasMore && nav.hasMore() ? '+' : ''}</span>` : ''}<br>
         ${esc(it.name || '')}<br>${esc([formatBytes(it.size), dims, it.bucketName, isVideo ? formatDuration(it.durationMs) : ''].filter(Boolean).join(' · '))}</div>
       <div class="vtags" id="vtags"></div>`;

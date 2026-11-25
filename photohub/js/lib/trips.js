@@ -8,6 +8,7 @@
 // Photos with no location are not in a trip (Places can't see them either).
 
 import * as places from './places.js';
+import * as placeSync from './place-sync.js';
 
 export const AWAY_KM = 50, GAP_DAYS = 2, MIN_PHOTOS = 3;
 const DAY = 86400000;
@@ -31,9 +32,13 @@ export function dateRange(start, end) {
   return `${md(a)} - ${md(b)}, ${a.getFullYear()}`;
 }
 
-/** Your trips, the newest first: [{ id, name, towns, start, end, when, count, cover, items }] (items newest first). */
+/** Your trips, the newest first: [{ id, name, towns, start, end, when, count, cover, items, cloud }] (items newest first).
+ *  11/25 TRIPS FROM THE CLOUD (Scott: "you in vacation area it shows vacation list or folder of ones saved on cloud"): photos that are
+ *  only in your cloud backup (freed from this phone, or from another phone) count too - lib/place-sync.js; they show from the cloud. */
 export async function list() {
-  const all = (await places.locatedItems()).filter((x) => x.ll && x.item && x.item.date);
+  const here = (await places.locatedItems()).filter((x) => x.ll && x.item && x.item.date);
+  const cloud = (await placeSync.cloudLocated().catch(() => [])).filter((x) => x.ll && x.item && x.item.date);
+  const all = here.concat(cloud);
   if (!all.length) return [];
   const count = new Map();
   for (const x of all) count.set(x.p, (count.get(x.p) || 0) + 1);
@@ -52,7 +57,8 @@ export async function list() {
     const towns = [...by].sort((a, b) => b[1] - a[1]).map(([l]) => l);
     const items = g.list.map((x) => x.item).sort((a, b) => b.date - a.date);
     return { id: `${new Date(g.start).toISOString().slice(0, 10)}-${slug(towns[0])}`, name: towns.length > 1 ? `${towns[0]} + ${towns.length - 1} more` : towns[0],
-      towns, start: g.start, end: g.end, when: dateRange(g.start, g.end), count: items.length, cover: items[Math.floor(items.length / 2)], items };
+      towns, start: g.start, end: g.end, when: dateRange(g.start, g.end), count: items.length, cover: items[Math.floor(items.length / 2)], items,
+      cloud: items.filter((i) => i.cloud).length };
   }).sort((a, b) => b.start - a.start);
 }
 export async function find(id) { return (await list()).find((t) => t.id === id) || null; }

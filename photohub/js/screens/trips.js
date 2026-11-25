@@ -8,11 +8,16 @@ import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, thumbnailUrl, isNative, openAppSettings } from '../native/media-library.js';
 import * as places from '../lib/places.js';
 import * as trips from '../lib/trips.js';
+import * as placeSync from '../lib/place-sync.js';
+import * as account from '../lib/account.js';
 import { formatCount } from '../lib/timeline.js';
 
 export async function render(root, params, ctx) {
   let alive = true;
   const readable = canRead(ctx.access);
+  // 11/25 Trips from the cloud: signed in to Cloud Backup, the web version shows your cloud trips even with nothing picked
+  try { await account.init(); } catch (e) { /* no sign-in on this build */ }
+  const signedIn = account.available() && !!account.current();
   root.innerHTML = `<div class="screen">
     <div class="subbar"><button class="icon-btn" id="back" aria-label="Back">${icons.back}</button><h1>Trips</h1><span class="count" id="tcount"></span></div>
     <div class="note" id="tline"></div>
@@ -24,7 +29,7 @@ export async function render(root, params, ctx) {
   const line = root.querySelector('#tline');
   const grid = root.querySelector('#tgrid');
 
-  if (!readable) {
+  if (!readable && !signedIn) {
     line.innerHTML = `<div class="empty"><div class="ico">${icons.plane}</div><b>Your trips show up here</b>
       ${ctx.access.web ? 'Pick photos and Photo Hub finds your trips from where and when they were taken.' : 'Allow photo access and Photo Hub finds your trips from where and when your photos were taken.'}
       ${ctx.access.state === 'unavailable' ? '' : `<button class="primary-btn" id="ask">${ctx.access.web ? 'Pick photos' : 'Allow photo access'}</button>`}</div>`;
@@ -42,7 +47,7 @@ export async function render(root, params, ctx) {
     shown = sig;
     root.querySelector('#tcount').textContent = list.length ? `${formatCount(list.length)} ${list.length === 1 ? 'trip' : 'trips'}` : '';
     grid.innerHTML = list.map((t, i) => `<button class="album-card" data-i="${i}" data-trip="${esc(t.id)}">
-      <span class="ph">${icons.plane}</span><span class="meta"><b>${esc(t.name)}</b><span>${esc(t.when)} · ${formatCount(t.count)} ${t.count === 1 ? 'item' : 'items'}</span></span></button>`).join('');
+      <span class="ph">${icons.plane}</span><span class="meta"><b>${esc(t.name)}</b><span>${esc(t.when)} · ${formatCount(t.count)} ${t.count === 1 ? 'item' : 'items'}${t.cloud ? ` · ${t.cloud === t.count ? 'in the cloud' : `${formatCount(t.cloud)} in the cloud`}` : ''}</span></span></button>`).join('');
     list.forEach((t, i) => thumbnailUrl(t.cover).then((url) => {
       const c = grid.querySelector(`[data-i="${i}"]`);
       if (alive && url && c && !c.querySelector('img')) c.insertAdjacentHTML('afterbegin', `<img alt="" src="${esc(url)}">`);
@@ -86,5 +91,7 @@ export async function render(root, params, ctx) {
   drawLine(places.status());
   drawGrid();
   places.scan();
+  // 11/25: send this phone's new places to the cloud, then list again with the cloud's trips
+  if (signedIn) placeSync.pushNow().then(() => { placeSync.forget(); shown = ''; if (alive) drawGrid(); });
   return () => { alive = false; stop(); clearTimeout(tm); };
 }

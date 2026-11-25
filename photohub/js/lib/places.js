@@ -251,3 +251,31 @@ export async function label(key) {
   const x = (await located()).find((y) => y.p === key);
   return x ? x.l : '';
 }
+
+// ---------------------------------------------------------------- 11/25 TRIPS FROM THE CLOUD (lib/place-sync.js)
+// Scott: "you in vacation area it shows vacation list or folder of ones saved on cloud ... we want it availbe for easy access but not all
+// stored in phone". Each backed-up photo's place goes to the cloud ROUNDED to about a kilometer, so Trips can show trips whose photos are
+// only in the cloud (freed from this phone, or backed up from another phone).
+/** Places read here whose photo is backed up but not sent to the cloud yet: [{ key, sha, ll }]. shaForKey(key) = the backup's SHA-256. */
+export async function cloudPending(shaForKey) {
+  if (!known) known = await loadAll();
+  const out = [];
+  for (const [k, r] of known) {
+    if (!r.ll) continue;
+    const sha = shaForKey(isNative() ? 'n:' + k : k);
+    if (sha && r.c !== sha) out.push({ key: k, sha, ll: r.ll });
+  }
+  return out;
+}
+/** After the cloud has them: remember they were sent (r.c = the SHA-256 sent). */
+export async function markCloud(list) {
+  if (!known) known = await loadAll();
+  const entries = [];
+  for (const { key, sha } of list) { const r = known.get(key); if (r) { r.c = sha; entries.push([key, r]); } }
+  if (entries.length) await putMany(entries);
+}
+/** The town for a place from the cloud: { p, l } or null. */
+export async function townFor(ll) {
+  const t = await nearestTown(Number(ll[0]), Number(ll[1]));
+  return t ? { p: townKey(t), l: townLabel(t) } : null;
+}
