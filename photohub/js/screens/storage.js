@@ -2,7 +2,8 @@
 // CLOUD (plan section 4 + 19): Google sign-in, Auto Backup, Wi-Fi only, keep favorites on this phone, storage numbers.
 // 11/22 cloud is REAL (Scott: "Yes, build it"): backups go to Photo Hub's service on Cloudflare -> Backblaze B2 (US East), each person in
 // their own folder. Every number here is real: the backup engine's own counts and what the cloud says it holds. Nothing on this screen
-// deletes anything - "Clean Up" stays disabled until the never-lose-a-photo checks are done.
+// deletes anything. 11/24 (Scott: "Start with steps 1 + 2"): the greyed-out Device Cleanup card is hidden until Clean Up is built, after
+// the never-lose-a-photo checks (docs/UNFINISHED_PAGES_2026-11-24.md).
 //   Phone app: Auto Backup reads the phone library and backs up what is not in the cloud yet - while Photo Hub is open, and since
 //   0.4.0 also in the background about every hour on Wi-Fi (android BackupWorker), with the last background run shown here.
 //   Web version (PC / iPhone / Android browser): backs up the photos picked this visit (automatically, or "Back up now").
@@ -72,12 +73,6 @@ export async function render(root, params, ctx) {
       <p class="note" id="pcMsg"></p>
     </section>
 
-    <section class="card c2-clean">
-      <span class="c2-ico">${icons.broom}</span><div class="c2-txt"><b>Device Cleanup</b><span>Free up phone space - after backup</span></div>
-      <button class="pill-btn" disabled>Clean Up ${icons.chevron}</button>
-    </section>
-    <p class="note">Clean Up only removes phone copies that have a checked cloud copy - never your favorites, never the vault - and asks you
-      first. "Delete everywhere" is always a separate button.</p>
 
     <div class="c2-two">
       <button class="card c2-fav" data-go="#photos?type=all&fav=1&title=Favorites"><span class="c2-ico rose">${icons.heart}</span><b>Favorites</b><span>Saved on your phone</span><span class="c2-pics" id="favPics"></span></button>

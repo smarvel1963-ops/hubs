@@ -124,8 +124,7 @@ export function askForPhotoAccess(current) {
       body: 'Photo Hub shows your photos and videos here, newest first, grouped by day.',
       list: [
         'It only reads them. It never changes or deletes a photo.',
-        'In this test version nothing leaves your phone.',
-        'Later, cloud backup will only run if you turn it on.',
+        'Nothing leaves your phone unless you turn on Cloud Backup - it is optional.',
         'Android asks next: you can allow all, or pick some photos.',
       ],
       actions: [

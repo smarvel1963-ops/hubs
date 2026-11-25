@@ -3,7 +3,7 @@
 // always wins when online), the saved copy only when offline. Only the app's own files are kept - never a photo (picked photos never
 // leave the page). Registered by index.html only on the website, never inside the Android app.
 // 11/22 cloud backup talks to another address (the backup service), which this file never touches - only same-site files are kept.
-const CACHE = 'photohub-web-v7';   // v7 11/24: voicefill.js (a mic in every typing box)
+const CACHE = 'photohub-web-v8';   // v8 11/24: 0.7.2 - unbuilt tiles hidden, old wording fixed; v7: voicefill.js
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

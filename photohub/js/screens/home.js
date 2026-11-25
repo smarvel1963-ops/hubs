@@ -1,11 +1,12 @@
 // home.js - C:\MarvelApps\photohub\www\js\screens\home.js
 // HOME, new look 11/22 (Scott's design "Home Dashboard" + "your ideas are good"): bright header with your newest photos, then big colorful
-// tiles - Memories, Family Albums, Vacation Trips, Favorites, Private Vault, AI Editing, Cloud Backup. Tiles show YOUR photos once you have
-// picked some (never a vault photo); before that, colors and icons only. No made-up numbers: counts are real, and anything not built yet
-// opens a plain "coming" sheet.
+// tiles - Memories, Family Albums, Favorites, Private Vault, Cloud Backup. Tiles show YOUR photos once you have picked some (never a
+// vault photo); before that, colors and icons only. No made-up numbers: counts are real. 11/24 (Scott: "Start with steps 1 + 2" after
+// "photo app has lots unfinished pages"): the tiles not built yet (Vacation Trips, AI Editing) and the bell are hidden until they are,
+// and the person button opens the Cloud page, where Google sign-in lives.
 
 import { icons, logoSvg } from '../icons.js';
-import { esc, comingLater, askForPhotoAccess } from '../ui.js';
+import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, getLibrarySummary, thumbnailUrl } from '../native/media-library.js';
 import { formatCount } from '../lib/timeline.js';
 import { onThisDay } from './memories.js';
@@ -13,10 +14,8 @@ import { onThisDay } from './memories.js';
 const TILES = [
   { key: 'memories', cls: 't-sunset', icon: 'calHeart', label: 'Memories', go: '#memories' },
   { key: 'family', cls: 't-teal', icon: 'people', label: 'Family Albums', go: '#albums' },
-  { key: 'trips', cls: 't-ocean', icon: 'plane', label: 'Vacation Trips', later: 'trips' },
   { key: 'fav', cls: 't-rose', icon: 'heart', label: 'Favorites', go: '#photos?type=all&fav=1&title=Favorites' },
   { key: 'vault', cls: 't-violet', icon: 'lock', label: 'Private Vault', go: '#vault' },
-  { key: 'ai', cls: 't-orange', icon: 'wand', label: 'AI Editing', later: 'restore' },
 ];
 
 export async function render(root, params, ctx) {
@@ -30,8 +29,7 @@ export async function render(root, params, ctx) {
       <div class="hero2-top">
         <button class="icon-btn" data-go="#more" aria-label="Menu">${icons.menu}</button>
         <div class="brand2">${logoSvg}<span>Photo Hub</span></div>
-        <button class="icon-btn" data-later="alerts" aria-label="Notifications">${icons.bell}</button>
-        <button class="icon-btn" data-later="account" aria-label="Account">${icons.user}</button>
+        <button class="icon-btn" data-go="#storage" aria-label="Account and Cloud Backup">${icons.user}</button>
       </div>
       <div class="hero2-text"><b>Your Photos, Safe &amp; Organized</b>
         <span class="counts"><span data-count="all">--</span> · <span data-count="video">--</span> · <span data-count="fav">--</span></span></div>
@@ -51,11 +49,11 @@ export async function render(root, params, ctx) {
     <div id="memStrip"></div>
 
     <div class="tiles2">
-      ${TILES.map((t) => `<button class="tile2 ${t.cls}" data-tile="${t.key}" ${t.go ? `data-go="${esc(t.go)}"` : `data-later="${t.later}"`}>
+      ${TILES.map((t) => `<button class="tile2 ${t.cls}" data-tile="${t.key}" data-go="${esc(t.go)}">
           <span class="t2-ico">${icons[t.icon]}</span><span class="t2-lbl">${esc(t.label)}</span>
-          ${t.later ? '<span class="t2-soon">Coming</span>' : ''}<span class="t2-pic"></span></button>`).join('')}
+          <span class="t2-pic"></span></button>`).join('')}
       <button class="tile2 wide t-green" data-tile="cloud" data-go="#storage">
-        <span class="t2-ico">${icons.cloudUp}</span><span class="t2-lbl">Cloud Backup</span><span class="t2-sub">Coming with your plan</span><span class="t2-pics" id="cloudPics"></span></button>
+        <span class="t2-ico">${icons.cloudUp}</span><span class="t2-lbl">Cloud Backup</span><span class="t2-sub">Back up your photos and albums</span><span class="t2-pics" id="cloudPics"></span></button>
     </div>
   </div>`;
 
@@ -69,7 +67,6 @@ export async function render(root, params, ctx) {
       if (canRead(a)) ctx.rerender();
       return;
     }
-    if (t.dataset.later) { comingLater(t.dataset.later); return; }
     if (t.dataset.go) ctx.go(t.dataset.go);
   });
 
@@ -90,7 +87,7 @@ export async function render(root, params, ctx) {
     set('fav', s.favorites === null || s.favorites === undefined ? 'Favorites: Android 11+' : `${formatCount(s.favorites)} on your phone`);
   }).catch(() => {});
 
-  // newest photos: the header + the collage + the Cloud tile; older ones for Memories / AI Editing; hearts for Favorites
+  // newest photos: the header + the collage + the Cloud tile; an older one for Memories; hearts for Favorites
   const r = await listMedia({ type: 'image', limit: 60, offset: 0 }).catch(() => ({ items: [] }));
   if (!alive) return null;
   const imgs = r.items || [];
@@ -106,7 +103,6 @@ export async function render(root, params, ctx) {
   }
   setPic('[data-tile="memories"] .t2-pic', imgs[imgs.length - 1]);
   setPic('[data-tile="family"] .t2-pic', imgs[1] || imgs[0]);
-  setPic('[data-tile="ai"] .t2-pic', imgs[Math.min(2, imgs.length - 1)], 'sepia');
   listMedia({ type: 'all', favoritesOnly: true, limit: 1, offset: 0 }).then((f) => setPic('[data-tile="fav"] .t2-pic', f.items[0])).catch(() => {});
   const cp = root.querySelector('#cloudPics');
   for (const it of imgs.slice(0, 3)) {

@@ -1,6 +1,6 @@
 // albums.js - C:\MarvelApps\photohub\www\js\screens\albums.js
 // Albums: All Photos / Favorites / Videos plus the phone's REAL folders (Camera, Screenshots, WhatsApp...) from
-// MediaStore, each opening the timeline. Places (0.7.0) sorts photos by town; People / Pets / Events are later-phase smart albums.
+// MediaStore, each opening the timeline. Places (0.7.0) sorts photos by town. 11/24 (Scott: "Start with steps 1 + 2"): People / Pets / Events stay hidden until built.
 
 import { icons } from '../icons.js';
 import { esc, comingLater, askForPhotoAccess } from '../ui.js';
@@ -9,11 +9,6 @@ import { createAlbum } from '../lib/mine.js';
 import { askText } from '../ui.js';
 import { formatCount } from '../lib/timeline.js';
 
-const LATER = [
-  { key: 'people', name: 'People', icon: 'people' },
-  { key: 'pets', name: 'Pets', icon: 'paw' },
-  { key: 'events', name: 'Events', icon: 'cake' },
-];
 
 function card({ key = '', name, icon, sub, hash = '', later = '' }) {
   return `<button class="album-card ${later ? 'later' : ''}" ${hash ? `data-go="${esc(hash)}"` : ''} ${later ? `data-later="${esc(later)}"` : ''} data-card="${esc(key)}">
@@ -44,7 +39,7 @@ export async function render(root, params, ctx) {
     <div class="section-title">${ctx.access.web ? 'By month' : 'Phone folders'}</div>
     <div class="album-grid" id="folders">${readable ? '<div class="loading">Reading albums...</div>' : '<div class="note">--</div>'}</div>
     <div class="section-title">Smart albums</div>
-    <div class="album-grid">${card({ key: 'places', name: 'Places', icon: 'pin', sub: 'By town', hash: '#places' })}${LATER.map((a) => card({ name: a.name, icon: a.icon, sub: 'Later phase', later: a.key })).join('')}</div>
+    <div class="album-grid">${card({ key: 'places', name: 'Places', icon: 'pin', sub: 'By town', hash: '#places' })}</div>
   </div>`;
 
   root.addEventListener('click', async (e) => {

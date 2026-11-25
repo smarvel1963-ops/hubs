@@ -1,21 +1,18 @@
 // gallery.js - C:\MarvelApps\photohub\www\js\screens\gallery.js
 // GALLERY & SEARCH, new look 11/22 (Scott's design "Gallery & Search"): a search box, filter chips (All, Photos, Videos, Favorites, Dates,
-// Places, Tags), picture cards (People, Pets, Places, Trips, Calendar, Recently Added) and a timeline - This Week, Last Week, This Month,
-// Earlier. Search looks at names, months, years, "video" and "favorite". People / Pets / Places / Trips / Tags open a plain "coming" sheet
-// until they are built (no made-up results).
+// Places), picture cards (Places, Calendar, Recently Added) and a timeline - This Week, Last Week, This Month, Earlier. Search looks at
+// names, months, years, "video" and "favorite". 11/24 (Scott: "Start with steps 1 + 2"): People, Pets, Trips and Tags are hidden until
+// they are built - no "coming" cards for reviewers to tap.
 
 import { icons } from '../icons.js';
-import { esc, comingLater, askForPhotoAccess } from '../ui.js';
+import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, listAlbums, thumbnailUrl } from '../native/media-library.js';
 import { formatCount } from '../lib/timeline.js';
 import { openViewer } from './photos.js';
 
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const CARDS = [
-  { key: 'people', label: 'People', icon: 'people', later: 'people', cls: 'g-teal' },
-  { key: 'pets', label: 'Pets', icon: 'paw', later: 'pets', cls: 'g-gold' },
   { key: 'places', label: 'Places', icon: 'pin', go: '#places', cls: 'g-ocean' },   // 0.7.0
-  { key: 'trips', label: 'Trips', icon: 'plane', later: 'trips', cls: 'g-blue' },
   { key: 'calendar', label: 'Calendar', icon: 'calendar', go: 'dates', cls: 'g-orange' },
   { key: 'recent', label: 'Recently Added', icon: 'image', go: '#photos?type=all&title=Recently%20Added', cls: 'g-violet' },
 ];
@@ -31,11 +28,11 @@ export async function render(root, params, ctx) {
     <div class="subbar"><h1>Gallery</h1><span class="count" id="gcount"></span></div>
     <label class="search2 field">${icons.search}<input id="q" type="search" placeholder="Search your photos..." aria-label="Search your photos" value="${esc(params.q || '')}"></label>
     <div class="chips" id="chips">
-      ${[['all', 'All', 'grid'], ['image', 'Photos', 'image'], ['video', 'Videos', 'play'], ['fav', 'Favorites', 'heart'], ['dates', 'Dates', 'calendar'], ['places', 'Places', 'pin'], ['tags', 'Tags', 'tag']]
+      ${[['all', 'All', 'grid'], ['image', 'Photos', 'image'], ['video', 'Videos', 'play'], ['fav', 'Favorites', 'heart'], ['dates', 'Dates', 'calendar'], ['places', 'Places', 'pin']]
         .map(([k, l, ic]) => `<button class="chip ichip ${mode === k ? 'on' : ''}" data-f="${k}">${icons[ic]}${l}</button>`).join('')}
     </div>
-    <div class="gcards">${CARDS.map((c) => `<button class="gcard ${c.cls}" data-card="${c.key}" ${c.go ? `data-cgo="${esc(c.go)}"` : `data-later="${c.later}"`}>
-        <span class="gpic"></span><span class="glbl">${icons[c.icon]}${esc(c.label)}${c.later ? '<em>Coming</em>' : ''}</span>${icons.chevron}</button>`).join('')}</div>
+    <div class="gcards">${CARDS.map((c) => `<button class="gcard ${c.cls}" data-card="${c.key}" data-cgo="${esc(c.go)}">
+        <span class="gpic"></span><span class="glbl">${icons[c.icon]}${esc(c.label)}</span>${icons.chevron}</button>`).join('')}</div>
     <div class="tl-head">${icons.clock}<h2 id="tlTitle">Timeline</h2></div>
     <div id="tl">${readable ? '<div class="loading">Loading photos...</div>' : `<div class="empty"><div class="ico">${icons.image}</div><b>Your photos show up here</b>
       ${ctx.access.web ? 'Pick photos and videos from your phone. They stay on your phone - nothing is uploaded.' : 'Allow photo access to see them.'}
@@ -49,13 +46,11 @@ export async function render(root, params, ctx) {
     if (b.id === 'ask') { const a = await askForPhotoAccess(ctx.access); ctx.setAccess(a); if (canRead(a)) ctx.rerender(); return; }
     if (b.dataset.f) {
       if (b.dataset.f === 'places') { ctx.go('#places'); return; }
-      if (b.dataset.f === 'tags') { comingLater('tags'); return; }
       mode = b.dataset.f;
       root.querySelectorAll('#chips .chip').forEach((c) => c.classList.toggle('on', c.dataset.f === mode));
       draw();
       return;
     }
-    if (b.dataset.later) { comingLater(b.dataset.later); return; }
     if (b.dataset.cgo === 'dates') { mode = 'dates'; root.querySelectorAll('#chips .chip').forEach((c) => c.classList.toggle('on', c.dataset.f === 'dates')); draw(); return; }
     if (b.dataset.cgo) { ctx.go(b.dataset.cgo); return; }
     if (b.dataset.seeall) { ctx.go(b.dataset.seeall); return; }
