@@ -1,7 +1,10 @@
 // app.js - C:\MarvelApps\photohub\www\js\app.js
 // Photo Hub app shell: hash router, bottom bar (Home / Gallery / Albums / Cloud / More), shared photo-access state.
-// Routes: #home  #gallery  #memories  #albums  #videos  #more  #storage  #places  #trips  #vault  #photos?type=all|image|video&bucket=..&fav=1&title=..
+// Routes: #home  #gallery  #memories  #albums  #videos  #more  #storage  #places  #trips  #vault  #alerts  #cleanup  #copies  #events
+//         #photos?type=all|image|video&bucket=..&fav=1&title=..
 // 11/24 (Scott: "Start with steps 1 + 2"): the old Tools page is gone - nothing linked to it and it called built things "Later".
+// 11/25 (plan steps 4-6): #alerts (Notifications, the bell), #cleanup (Free Up Phone Space), #copies (Duplicate Cleanup), #events.
+// A tapped phone notification opens the screen it names (native/alerts.js takeGo).
 
 import { icons } from './icons.js';
 import { getAccess } from './native/media-library.js';
@@ -15,9 +18,14 @@ import * as gallery from './screens/gallery.js';
 import * as memories from './screens/memories.js';
 import * as placesScreen from './screens/places.js';
 import * as tripsScreen from './screens/trips.js';
+import * as alertsScreen from './screens/alerts.js';
+import * as cleanupScreen from './screens/cleanup.js';
+import * as copiesScreen from './screens/copies.js';
+import * as eventsScreen from './screens/events.js';
+import * as alerts from './native/alerts.js';
 import * as runner from './backup/runner.js';
 
-export const APP_VERSION = '0.7.5';
+export const APP_VERSION = '0.7.6';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
@@ -32,6 +40,10 @@ const ROUTES = {
   places: { mod: placesScreen, tab: 'albums' },   // 0.7.0 your photos by town
   trips: { mod: tripsScreen, tab: 'gallery' },    // 11/24 your trips, from where + when photos were taken
   vault: { mod: vault, tab: 'home' },   // Private Vault (11/22) - opens only with the code
+  alerts: { mod: alertsScreen, tab: 'home' },     // 11/25 Notifications
+  cleanup: { mod: cleanupScreen, tab: 'cloud' },  // 11/25 Free Up Phone Space (phone app)
+  copies: { mod: copiesScreen, tab: 'cloud' },    // 11/25 Duplicate Cleanup (phone app)
+  events: { mod: eventsScreen, tab: 'albums' },   // 11/25 Events - your big days
 };
 
 const TABS = [
@@ -90,6 +102,14 @@ async function render() {
   state.cleanup = cleanup;
 }
 
+/** 11/25: a tapped phone notification ("On this day", "Backup finished") -> its screen. -> true when it moved there. */
+async function openTapped() {
+  const go = await alerts.takeGo();
+  if (!go || !ROUTES[go.slice(1).split('?')[0]]) return false;
+  ctx.go(go);
+  return true;
+}
+
 async function start() {
   document.getElementById('nav').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-hash]');
@@ -99,12 +119,13 @@ async function start() {
   // Coming back from Android settings (photo access may have changed): re-check and redraw.
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState !== 'visible') return;
+    if (await openTapped()) return;
     const before = state.access.state;
     const now = (await ctx.refreshAccess()).state;
     if (now !== before) render();
   });
   await ctx.refreshAccess();
-  render();
+  if (!(await openTapped())) render();
   // 11/22 cloud backup: keeps going while Photo Hub is open (Auto Backup on + signed in); picked photos on the web version too
   window.addEventListener('photohub:picked', () => runner.kick());
   runner.start().catch(() => {});

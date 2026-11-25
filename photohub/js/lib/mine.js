@@ -165,3 +165,5 @@ export function snapFor(key) { return snaps[key] || null; }
 
 /** true when this key is hearted (web version: name|size|date). */
 export function heartSig(s) { return hearts.has(s); }
+/** 11/25 Clean Up / Duplicates: every photo you hearted or put in an album (their keys) - those always stay on the phone. */
+export function keptKeys() { const k = new Set(hearts); for (const a of albums) for (const m of a.members) k.add(m); return [...k]; }

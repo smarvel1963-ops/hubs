@@ -52,6 +52,8 @@ export function allTags() {
 /** Does this photo carry a tag containing these words (search)? */
 export function tagMatch(i, q) { const s = String(q || '').toLowerCase().trim(); return !!s && tagsOf(i).some((t) => t.includes(s)); }
 /** The keys carrying a tag. */
+/** 11/25 Clean Up / Duplicates: every tagged photo (their keys) - those stay on the phone. */
+export function taggedKeys() { return Object.keys(tags).filter((k) => tags[k] && tags[k].length); }
 export function keysWith(tag) { return Object.keys(tags).filter((k) => tags[k].includes(tag)); }
 /** Phone app: the tagged photos as items (from the kept snapshots), newest first. */
 export function taggedSnapItems(tag) {

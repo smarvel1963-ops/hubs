@@ -3,13 +3,15 @@
 // tiles - Memories, Family Albums, Favorites, Private Vault, Cloud Backup. Tiles show YOUR photos once you have picked some (never a
 // vault photo); before that, colors and icons only. No made-up numbers: counts are real. 11/24 (Scott: "Start with steps 1 + 2" after
 // "photo app has lots unfinished pages"): the tiles not built yet (AI Editing) and the bell are hidden until they are (Vacation Trips came back the same night, built),
-// and the person button opens the Cloud page, where Google sign-in lives.
+// and the person button opens the Cloud page, where Google sign-in lives. 11/25 (plan step 4): the bell is back - it opens Notifications
+// (#alerts) and shows a dot when there is a new note or today's memory not seen yet.
 
 import { icons, logoSvg } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, getLibrarySummary, thumbnailUrl } from '../native/media-library.js';
 import { formatCount } from '../lib/timeline.js';
 import { onThisDay } from './memories.js';
+import { hasNew } from './alerts.js';
 
 const TILES = [
   { key: 'memories', cls: 't-sunset', icon: 'calHeart', label: 'Memories', go: '#memories' },
@@ -30,6 +32,7 @@ export async function render(root, params, ctx) {
       <div class="hero2-top">
         <button class="icon-btn" data-go="#more" aria-label="Menu">${icons.menu}</button>
         <div class="brand2">${logoSvg}<span>Photo Hub</span></div>
+        <button class="icon-btn bell" id="bell" data-go="#alerts" aria-label="Notifications">${icons.bell}<i class="dot" hidden></i></button>
         <button class="icon-btn" data-go="#storage" aria-label="Account and Cloud Backup">${icons.user}</button>
       </div>
       <div class="hero2-text"><b>Your Photos, Safe &amp; Organized</b>
@@ -71,7 +74,8 @@ export async function render(root, params, ctx) {
     if (t.dataset.go) ctx.go(t.dataset.go);
   });
 
-  if (!readable) return () => { alive = false; };
+  const bellDot = (memToday) => hasNew(memToday).then((n) => { const d = root.querySelector('#bell .dot'); if (alive && d) d.hidden = !n; }).catch(() => {});
+  if (!readable) { bellDot(false); return () => { alive = false; }; }
 
   const setPic = async (sel, item, cls = '') => {
     if (!item) return;
@@ -114,6 +118,7 @@ export async function render(root, params, ctx) {
 
   // On this day (Scott 11/22: "one drive brings up memories on certain dates each day like 1 year 5 years")
   const mem = await onThisDay().catch(() => []);
+  bellDot(mem.some((g) => g.exact));
   if (alive && mem.length) {
     const g = mem[0];
     const strip = root.querySelector('#memStrip');

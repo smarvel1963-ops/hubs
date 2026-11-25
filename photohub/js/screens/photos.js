@@ -13,6 +13,7 @@ import { cloudFullUrl } from '../lib/cloud-images.js';
 import { tagsOf, addTags, removeTag, tagMany, allTags, parseTags, taggedSnapItems } from '../lib/tags.js';
 import * as places from '../lib/places.js';
 import * as trips from '../lib/trips.js';
+import * as events from '../lib/events.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 
@@ -27,6 +28,7 @@ export async function render(root, params, ctx) {
   const placeKey = params.place || null;  // 0.7.0: one town from Places
   const tagKey = params.tag || null;      // 11/24: one of your tags
   const tripId = params.trip || null;     // 11/24: one trip (lib/trips.js)
+  const eventId = params.event || null;   // 11/25: one big day (lib/events.js)
   const title = (albumId && albumName(albumId)) || params.title || (tagKey ? '#' + tagKey : '') || (type === 'video' ? 'Videos' : 'All Photos');
   const access = ctx.access;
 
@@ -71,6 +73,12 @@ export async function render(root, params, ctx) {
     const page = all.slice(off, off + PAGE);
     return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
   }
+  async function eventPage(off) {
+    const ev = await events.find(eventId); const all = ev ? ev.items : [];
+    const page = all.slice(off, off + PAGE);
+    return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
+  }
+  if (eventId) events.find(eventId).then((ev) => { const h = root.querySelector('.subbar h1'); if (alive && ev && h) h.textContent = ev.name; });
   if (tripId) trips.find(tripId).then((t) => { const h = root.querySelector('.subbar h1'); if (alive && t && h) h.textContent = `${t.name} · ${t.when}`; });
   if (placeKey) places.label(placeKey).then((l) => { const h = root.querySelector('.subbar h1'); if (alive && l && h) h.textContent = l; });
   const status = root.querySelector('#status');
@@ -173,7 +181,7 @@ export async function render(root, params, ctx) {
     loading = true;
     status.innerHTML = '<div class="loading">Loading photos...</div>';
     try {
-      const r = placeKey ? await placePage(offset) : tripId ? await tripPage(offset) : tagKey ? await tagPage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
+      const r = placeKey ? await placePage(offset) : tripId ? await tripPage(offset) : eventId ? await eventPage(offset) : tagKey ? await tagPage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
       if (!alive) return;
       offset = r.offset + r.items.length;
       hasMore = r.hasMore;

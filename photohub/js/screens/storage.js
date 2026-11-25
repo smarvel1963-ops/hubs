@@ -3,7 +3,9 @@
 // 11/22 cloud is REAL (Scott: "Yes, build it"): backups go to Photo Hub's service on Cloudflare -> Backblaze B2 (US East), each person in
 // their own folder. Every number here is real: the backup engine's own counts and what the cloud says it holds. Nothing on this screen
 // deletes anything. 11/24 (Scott: "Start with steps 1 + 2"): the greyed-out Device Cleanup card is hidden until Clean Up is built, after
-// the never-lose-a-photo checks (docs/UNFINISHED_PAGES_2026-11-24.md).
+// the never-lose-a-photo checks (docs/UNFINISHED_PAGES_2026-11-24.md). 11/25 (plan steps 5 + 6): built - the phone app (0.7.6+) shows
+// Device Cleanup (#cleanup, every photo checked against the cloud first) and Duplicate Cleanup (#copies, exact copies only). The web
+// version never shows them: a browser can't remove photos from a phone.
 //   Phone app: Auto Backup reads the phone library and backs up what is not in the cloud yet - while Photo Hub is open, and since
 //   0.4.0 also in the background about every hour on Wi-Fi (android BackupWorker), with the last background run shown here.
 //   Web version (PC / iPhone / Android browser): backs up the photos picked this visit (automatically, or "Back up now").
@@ -21,6 +23,7 @@ import * as runner from '../backup/runner.js';
 import { cloudCall } from '../backup/cloud-target.js';
 import * as albumSync from '../lib/album-sync.js';
 import { PRIVACY_URL } from './more.js';
+import * as cleanup from '../native/cleanup.js';
 
 export async function render(root, params, ctx) {
   let alive = true;
@@ -73,6 +76,16 @@ export async function render(root, params, ctx) {
       <p class="note" id="pcMsg"></p>
     </section>
 
+    ${cleanup.available() ? `<section class="card c2-clean">
+      <span class="c2-ico">${icons.broom}</span><div class="c2-txt"><b>Device Cleanup</b><span>Free up phone space - only photos checked in your cloud</span></div>
+      <button class="pill-btn" data-go="#cleanup">Clean Up ${icons.chevron}</button>
+    </section>
+    <section class="card c2-clean">
+      <span class="c2-ico">${icons.copies}</span><div class="c2-txt"><b>Duplicate Cleanup</b><span>The same photo saved twice</span></div>
+      <button class="pill-btn" data-go="#copies">Find ${icons.chevron}</button>
+    </section>
+    <p class="note">Clean Up never touches favorites, photos you hearted, put in an album or tagged, or the last 30 days - and Android asks
+      you first. Removed photos sit in the phone's trash about 30 days.</p>` : ''}
 
     <div class="c2-two">
       <button class="card c2-fav" data-go="#photos?type=all&fav=1&title=Favorites"><span class="c2-ico rose">${icons.heart}</span><b>Favorites</b><span>Saved on your phone</span><span class="c2-pics" id="favPics"></span></button>
