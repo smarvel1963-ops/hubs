@@ -66,11 +66,14 @@ export async function render(root, params, ctx) {
         Link the PC once with a code - the code can only read your backups, never change or delete them.</p>
       <div id="pcList"></div>
       <button class="primary-btn" id="pcLink">Link a PC</button>
+      <!-- 11/25 (Scott: bring Dropbox / Google / OneDrive in "so we can close them"): an IMPORT code lets the PC import tool ADD the photos
+           and videos copied from other clouds - it can never delete anything -->
+      <button class="ghost-btn" id="pcImport">Link a PC for importing</button>
       <div id="pcCode" hidden>
-        <p class="note"><b>Your PC code</b> - copy it now (it is shown only once):</p>
+        <p class="note"><b id="pcCodeTitle">Your PC code</b> - copy it now (it is shown only once):</p>
         <input class="text-in" id="pcCodeBox" readonly style="width:100%;font-family:monospace;font-size:13px">
         <button class="ghost-btn" id="pcCopy">Copy code</button>
-        <p class="note">On the PC: open the Photo Hub PC helper, open its page, and paste the code under <b>Copy from the cloud</b>.
+        <p class="note" id="pcCodeNote">On the PC: open the Photo Hub PC helper, open its page, and paste the code under <b>Copy from the cloud</b>.
           New photos then land in your PC's photo folder every 10 minutes while the helper is open.</p>
       </div>
       <p class="note" id="pcMsg"></p>
@@ -185,7 +188,7 @@ export async function render(root, params, ctx) {
       const { devices } = await cloudCall(account, '/v1/devices');
       if (!alive) return;
       box.innerHTML = devices.length ? devices.map((d) => `<div class="row"><span class="ico">${icons.database}</span><span class="txt"><b>${esc(d.name)}</b>
-        <span>Linked ${esc(new Date(d.created).toLocaleDateString())}${d.last ? ' · last copied ' + esc(new Date(d.last).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : ' · not used yet'}</span></span>
+        <span>${d.can === 'import' ? 'Import - adds photos, never deletes · ' : ''}Linked ${esc(new Date(d.created).toLocaleDateString())}${d.last ? ' · last used ' + esc(new Date(d.last).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : ' · not used yet'}</span></span>
         <button class="ghost-btn" data-pcrm="${esc(d.id)}">Remove</button></div>`).join('') : '';
     } catch (e) { if (alive) box.innerHTML = `<p class="note">${esc(e.message || String(e))}</p>`; }
   }
@@ -220,6 +223,20 @@ export async function render(root, params, ctx) {
         const name = (prompt('A name for this PC (so you can tell it apart later):', 'My PC') || 'My PC').slice(0, 40);
         const r = await cloudCall(account, '/v1/devices', { method: 'POST', body: JSON.stringify({ name }) });
         root.querySelector('#pcCodeBox').value = r.code;
+        root.querySelector('#pcCode').hidden = false;
+        loadPcs();
+      } catch (err) { msg.textContent = err.message || String(err); }
+      btn.disabled = false;
+      return;
+    }
+    if (e.target.closest('#pcImport')) {   // 11/25 an add-only code for the PC import tool (pc-helper/photohub_import.py)
+      const btn = e.target.closest('#pcImport'), msg = root.querySelector('#pcMsg');
+      btn.disabled = true; msg.textContent = '';
+      try {
+        const r = await cloudCall(account, '/v1/devices', { method: 'POST', body: JSON.stringify({ name: 'My PC (import)', import: true }) });
+        root.querySelector('#pcCodeBox').value = r.code;
+        root.querySelector('#pcCodeTitle').textContent = 'Your import code';
+        root.querySelector('#pcCodeNote').textContent = 'Paste it when the Photo Hub import on your PC asks for it. It can only ADD photos and videos to your cloud - never delete or change anything. Remove it here when the import is done.';
         root.querySelector('#pcCode').hidden = false;
         loadPcs();
       } catch (err) { msg.textContent = err.message || String(err); }
