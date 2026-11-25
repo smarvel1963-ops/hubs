@@ -223,10 +223,12 @@ export async function allowLocations() {
 
 async function located() {
   if (!known) known = await loadAll();
-  if (isNative()) return [...known.values()].filter((r) => r.p && r.s).map((r) => ({ item: { ...r.s }, p: r.p, l: r.l }));
+  if (isNative()) return [...known.values()].filter((r) => r.p && r.s).map((r) => ({ item: { ...r.s }, p: r.p, l: r.l, ll: r.ll }));
   const items = (await web.listMedia({ type: 'all', offset: 0, limit: 100000 })).items || [];
-  return items.map((it) => ({ item: it, r: known.get(keyOf(it)) })).filter((x) => x.r && x.r.p).map((x) => ({ item: x.item, p: x.r.p, l: x.r.l }));
+  return items.map((it) => ({ item: it, r: known.get(keyOf(it)) })).filter((x) => x.r && x.r.p).map((x) => ({ item: x.item, p: x.r.p, l: x.r.l, ll: x.r.ll }));
 }
+/** 11/24 Trips (lib/trips.js): every photo with a town - { item, p: town key, l: label, ll: [lat, lon] }. */
+export async function locatedItems() { return located(); }
 
 /** Your places, the ones with the most photos first: [{ key, label, count, cover, latest }] */
 export async function list() {

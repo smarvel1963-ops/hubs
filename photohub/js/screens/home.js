@@ -2,7 +2,7 @@
 // HOME, new look 11/22 (Scott's design "Home Dashboard" + "your ideas are good"): bright header with your newest photos, then big colorful
 // tiles - Memories, Family Albums, Favorites, Private Vault, Cloud Backup. Tiles show YOUR photos once you have picked some (never a
 // vault photo); before that, colors and icons only. No made-up numbers: counts are real. 11/24 (Scott: "Start with steps 1 + 2" after
-// "photo app has lots unfinished pages"): the tiles not built yet (Vacation Trips, AI Editing) and the bell are hidden until they are,
+// "photo app has lots unfinished pages"): the tiles not built yet (AI Editing) and the bell are hidden until they are (Vacation Trips came back the same night, built),
 // and the person button opens the Cloud page, where Google sign-in lives.
 
 import { icons, logoSvg } from '../icons.js';
@@ -14,6 +14,7 @@ import { onThisDay } from './memories.js';
 const TILES = [
   { key: 'memories', cls: 't-sunset', icon: 'calHeart', label: 'Memories', go: '#memories' },
   { key: 'family', cls: 't-teal', icon: 'people', label: 'Family Albums', go: '#albums' },
+  { key: 'trips', cls: 't-ocean', icon: 'plane', label: 'Vacation Trips', go: '#trips' },   // 11/24 built (lib/trips.js)
   { key: 'fav', cls: 't-rose', icon: 'heart', label: 'Favorites', go: '#photos?type=all&fav=1&title=Favorites' },
   { key: 'vault', cls: 't-violet', icon: 'lock', label: 'Private Vault', go: '#vault' },
 ];
@@ -103,6 +104,7 @@ export async function render(root, params, ctx) {
   }
   setPic('[data-tile="memories"] .t2-pic', imgs[imgs.length - 1]);
   setPic('[data-tile="family"] .t2-pic', imgs[1] || imgs[0]);
+  import('../lib/trips.js').then((m) => m.list()).then((ts) => { if (ts[0]) setPic('[data-tile="trips"] .t2-pic', ts[0].cover); }).catch(() => {});
   listMedia({ type: 'all', favoritesOnly: true, limit: 1, offset: 0 }).then((f) => setPic('[data-tile="fav"] .t2-pic', f.items[0])).catch(() => {});
   const cp = root.querySelector('#cloudPics');
   for (const it of imgs.slice(0, 3)) {

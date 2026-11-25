@@ -54,7 +54,7 @@ export async function render(root, params, ctx) {
           'Your library: read only - Photo Hub never changes, moves or deletes a photo.',
           'Cloud Backup (optional, Google sign-in): private, encrypted copies in the United States. Invite-only during testing.',
           'Albums, tags, Places, the Private Vault and hearts are kept on your phone.',
-          'Coming later: Free Up Phone Space, People and Trips.',
+          'Coming later: Free Up Phone Space and People.',
         ],
       });
     } else if (b.dataset.go) ctx.go(b.dataset.go);

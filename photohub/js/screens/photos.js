@@ -12,6 +12,7 @@ import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteA
 import { cloudFullUrl } from '../lib/cloud-images.js';
 import { tagsOf, addTags, removeTag, tagMany, allTags, parseTags, taggedSnapItems } from '../lib/tags.js';
 import * as places from '../lib/places.js';
+import * as trips from '../lib/trips.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 
@@ -25,6 +26,7 @@ export async function render(root, params, ctx) {
   const albumId = params.album || null;   // one of your own albums (11/22)
   const placeKey = params.place || null;  // 0.7.0: one town from Places
   const tagKey = params.tag || null;      // 11/24: one of your tags
+  const tripId = params.trip || null;     // 11/24: one trip (lib/trips.js)
   const title = (albumId && albumName(albumId)) || params.title || (tagKey ? '#' + tagKey : '') || (type === 'video' ? 'Videos' : 'All Photos');
   const access = ctx.access;
 
@@ -33,7 +35,7 @@ export async function render(root, params, ctx) {
       <button class="icon-btn" id="back" aria-label="Back">${icons.back}</button>
       <h1>${esc(title)}</h1><span class="count" id="count"></span><button class="pill-btn" id="selBtn">Select</button>${albumId ? `<button class="pill-btn" id="albumEdit">Edit</button>` : ''}
     </div>
-    ${bucketId || albumId || placeKey || tagKey ? '' : `<div class="chips">
+    ${bucketId || albumId || placeKey || tagKey || tripId ? '' : `<div class="chips">
       <button class="chip ${type === 'all' && !fav ? 'on' : ''}" data-go="#photos?type=all&title=All%20Photos">All</button>
       <button class="chip ${type === 'image' && !fav ? 'on' : ''}" data-go="#photos?type=image&title=Photos">Photos</button>
       <button class="chip ${type === 'video' ? 'on' : ''}" data-go="#videos">Videos</button>
@@ -64,6 +66,12 @@ export async function render(root, params, ctx) {
     const page = all.slice(off, off + PAGE);
     return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
   }
+  async function tripPage(off) {
+    const t = await trips.find(tripId); const all = t ? t.items : [];
+    const page = all.slice(off, off + PAGE);
+    return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
+  }
+  if (tripId) trips.find(tripId).then((t) => { const h = root.querySelector('.subbar h1'); if (alive && t && h) h.textContent = `${t.name} · ${t.when}`; });
   if (placeKey) places.label(placeKey).then((l) => { const h = root.querySelector('.subbar h1'); if (alive && l && h) h.textContent = l; });
   const status = root.querySelector('#status');
   const ae = root.querySelector('#albumEdit');
@@ -165,7 +173,7 @@ export async function render(root, params, ctx) {
     loading = true;
     status.innerHTML = '<div class="loading">Loading photos...</div>';
     try {
-      const r = placeKey ? await placePage(offset) : tagKey ? await tagPage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
+      const r = placeKey ? await placePage(offset) : tripId ? await tripPage(offset) : tagKey ? await tagPage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
       if (!alive) return;
       offset = r.offset + r.items.length;
       hasMore = r.hasMore;

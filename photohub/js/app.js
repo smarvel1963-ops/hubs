@@ -1,6 +1,6 @@
 // app.js - C:\MarvelApps\photohub\www\js\app.js
 // Photo Hub app shell: hash router, bottom bar (Home / Gallery / Albums / Cloud / More), shared photo-access state.
-// Routes: #home  #gallery  #memories  #albums  #videos  #more  #storage  #places  #vault  #photos?type=all|image|video&bucket=..&fav=1&title=..
+// Routes: #home  #gallery  #memories  #albums  #videos  #more  #storage  #places  #trips  #vault  #photos?type=all|image|video&bucket=..&fav=1&title=..
 // 11/24 (Scott: "Start with steps 1 + 2"): the old Tools page is gone - nothing linked to it and it called built things "Later".
 
 import { icons } from './icons.js';
@@ -14,9 +14,10 @@ import * as vault from './screens/vault.js';
 import * as gallery from './screens/gallery.js';
 import * as memories from './screens/memories.js';
 import * as placesScreen from './screens/places.js';
+import * as tripsScreen from './screens/trips.js';
 import * as runner from './backup/runner.js';
 
-export const APP_VERSION = '0.7.3';
+export const APP_VERSION = '0.7.4';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
@@ -29,6 +30,7 @@ const ROUTES = {
   storage: { mod: storage, tab: 'cloud' },
   more: { mod: more, tab: 'more' },
   places: { mod: placesScreen, tab: 'albums' },   // 0.7.0 your photos by town
+  trips: { mod: tripsScreen, tab: 'gallery' },    // 11/24 your trips, from where + when photos were taken
   vault: { mod: vault, tab: 'home' },   // Private Vault (11/22) - opens only with the code
 };
 

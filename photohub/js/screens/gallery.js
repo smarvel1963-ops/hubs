@@ -1,8 +1,8 @@
 // gallery.js - C:\MarvelApps\photohub\www\js\screens\gallery.js
 // GALLERY & SEARCH, new look 11/22 (Scott's design "Gallery & Search"): a search box, filter chips (All, Photos, Videos, Favorites, Dates,
 // Places), picture cards (Places, Calendar, Recently Added) and a timeline - This Week, Last Week, This Month, Earlier. Search looks at
-// names, months, years, "video" and "favorite". 11/24 (Scott: "Start with steps 1 + 2"): People, Pets, Trips and Tags are hidden until
-// they are built - no "coming" cards for reviewers to tap. 11/24 TAGS (plan step 3): the Tags chip is back and real - your tags, each
+// names, months, years, "video" and "favorite". 11/24 (Scott: "Start with steps 1 + 2"): People and Pets are hidden until they are
+// built - no "coming" cards for reviewers to tap (Trips came back the same night, built - lib/trips.js). 11/24 TAGS (plan step 3): the Tags chip is back and real - your tags, each
 // opening its photos - and search finds tags too (lib/tags.js).
 
 import { icons } from '../icons.js';
@@ -15,6 +15,7 @@ import { openViewer } from './photos.js';
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const CARDS = [
   { key: 'places', label: 'Places', icon: 'pin', go: '#places', cls: 'g-ocean' },   // 0.7.0
+  { key: 'trips', label: 'Trips', icon: 'plane', go: '#trips', cls: 'g-blue' },      // 11/24 (lib/trips.js)
   { key: 'calendar', label: 'Calendar', icon: 'calendar', go: 'dates', cls: 'g-orange' },
   { key: 'recent', label: 'Recently Added', icon: 'image', go: '#photos?type=all&title=Recently%20Added', cls: 'g-violet' },
 ];
