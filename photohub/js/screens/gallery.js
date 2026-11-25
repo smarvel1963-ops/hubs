@@ -2,10 +2,12 @@
 // GALLERY & SEARCH, new look 11/22 (Scott's design "Gallery & Search"): a search box, filter chips (All, Photos, Videos, Favorites, Dates,
 // Places), picture cards (Places, Calendar, Recently Added) and a timeline - This Week, Last Week, This Month, Earlier. Search looks at
 // names, months, years, "video" and "favorite". 11/24 (Scott: "Start with steps 1 + 2"): People, Pets, Trips and Tags are hidden until
-// they are built - no "coming" cards for reviewers to tap.
+// they are built - no "coming" cards for reviewers to tap. 11/24 TAGS (plan step 3): the Tags chip is back and real - your tags, each
+// opening its photos - and search finds tags too (lib/tags.js).
 
 import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
+import { tagsOf, allTags } from '../lib/tags.js';
 import { canRead, listMedia, listAlbums, thumbnailUrl } from '../native/media-library.js';
 import { formatCount } from '../lib/timeline.js';
 import { openViewer } from './photos.js';
@@ -28,7 +30,7 @@ export async function render(root, params, ctx) {
     <div class="subbar"><h1>Gallery</h1><span class="count" id="gcount"></span></div>
     <label class="search2 field">${icons.search}<input id="q" type="search" placeholder="Search your photos..." aria-label="Search your photos" value="${esc(params.q || '')}"></label>
     <div class="chips" id="chips">
-      ${[['all', 'All', 'grid'], ['image', 'Photos', 'image'], ['video', 'Videos', 'play'], ['fav', 'Favorites', 'heart'], ['dates', 'Dates', 'calendar'], ['places', 'Places', 'pin']]
+      ${[['all', 'All', 'grid'], ['image', 'Photos', 'image'], ['video', 'Videos', 'play'], ['fav', 'Favorites', 'heart'], ['dates', 'Dates', 'calendar'], ['places', 'Places', 'pin'], ['tags', 'Tags', 'tag']]
         .map(([k, l, ic]) => `<button class="chip ichip ${mode === k ? 'on' : ''}" data-f="${k}">${icons[ic]}${l}</button>`).join('')}
     </div>
     <div class="gcards">${CARDS.map((c) => `<button class="gcard ${c.cls}" data-card="${c.key}" data-cgo="${esc(c.go)}">
@@ -54,6 +56,7 @@ export async function render(root, params, ctx) {
     if (b.dataset.cgo === 'dates') { mode = 'dates'; root.querySelectorAll('#chips .chip').forEach((c) => c.classList.toggle('on', c.dataset.f === 'dates')); draw(); return; }
     if (b.dataset.cgo) { ctx.go(b.dataset.cgo); return; }
     if (b.dataset.seeall) { ctx.go(b.dataset.seeall); return; }
+    if (b.dataset.tag) { ctx.go(`#photos?tag=${encodeURIComponent(b.dataset.tag)}&title=${encodeURIComponent('#' + b.dataset.tag)}`); return; }
     if (b.dataset.month) { ctx.go(`#photos?type=all&bucket=${encodeURIComponent(b.dataset.month)}&title=${encodeURIComponent(b.dataset.mname)}`); return; }
     const cell = b.closest('.tl-cell');
     if (cell) { const it = (shown[+cell.dataset.b] || [])[+cell.dataset.i]; if (it) openViewer(it); }
@@ -75,16 +78,17 @@ export async function render(root, params, ctx) {
   function matches(it, text) {
     if (!text) return true;
     const d = new Date(it.date);
-    const hay = `${it.name || ''} ${MONTHS[d.getMonth()]} ${d.getFullYear()} ${it.type === 'video' ? 'video videos' : 'photo photos picture'} ${it.favorite ? 'favorite favorites heart' : ''} ${it.bucketName || ''}`.toLowerCase();
+    const hay = `${it.name || ''} ${MONTHS[d.getMonth()]} ${d.getFullYear()} ${it.type === 'video' ? 'video videos' : 'photo photos picture'} ${it.favorite ? 'favorite favorites heart' : ''} ${it.bucketName || ''} ${tagsOf(it).join(' ')}`.toLowerCase();
     return text.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
   }
 
   async function draw() {
     const text = q.value.trim();
     if (mode === 'dates' && !text) return drawMonths();
-    const list = all.filter((it) => (mode === 'all' || mode === 'dates' || (mode === 'fav' ? it.favorite : it.type === mode)) && matches(it, text));
+    if (mode === 'tags' && !text) return drawTags();
+    const list = all.filter((it) => (mode === 'all' || mode === 'dates' || mode === 'tags' || (mode === 'fav' ? it.favorite : it.type === mode)) && matches(it, text));
     root.querySelector('#tlTitle').textContent = text ? `Results for "${text}"` : 'Timeline';
-    if (!list.length) { tl.innerHTML = `<div class="empty"><div class="ico">${icons.search}</div><b>Nothing found</b>${text ? 'Try a month, a year, "video" or "favorite".' : 'No photos here yet.'}</div>`; return; }
+    if (!list.length) { tl.innerHTML = `<div class="empty"><div class="ico">${icons.search}</div><b>Nothing found</b>${text ? 'Try a month, a year, a tag, "video" or "favorite".' : 'No photos here yet.'}</div>`; return; }
     const now = Date.now(), startOfDay = new Date(new Date().toDateString()).getTime();
     const weekStart = startOfDay - ((new Date().getDay() + 6) % 7) * 86400000;
     const lastWeek = weekStart - 7 * 86400000;
@@ -105,6 +109,13 @@ export async function render(root, params, ctx) {
         if (alive && url && img) { img.src = url; img.classList.add('ready'); }
       }));
     }
+  }
+
+  function drawTags() {
+    root.querySelector('#tlTitle').textContent = 'Your tags';
+    const ts = allTags();
+    if (!ts.length) { tl.innerHTML = `<div class="empty"><div class="ico">${icons.tag}</div><b>No tags yet</b>Open a photo and tap Tags to add your own words - like "beach" or "grandkids". Then find them here.</div>`; return; }
+    tl.innerHTML = `<div class="album-grid">${ts.map((x) => `<button class="album-card" data-tag="${esc(x.tag)}"><span class="ph">${icons.tag}</span><span class="meta"><b>#${esc(x.tag)}</b><span>${formatCount(x.n)} ${x.n === 1 ? 'photo' : 'photos'}</span></span></button>`).join('')}</div>`;
   }
 
   async function drawMonths() {

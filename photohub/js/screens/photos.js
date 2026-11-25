@@ -1,7 +1,8 @@
 // photos.js - C:\MarvelApps\photohub\www\js\screens\photos.js
 // Photos timeline: the phone's REAL photos and videos, newest first, grouped by day. Pages of 120 from
 // MediaStore; thumbnails load only for cells on (or near) the screen. Tap = full-size view (read from the phone).
-// Params: type=all|image|video, bucket=<album id>, fav=1, title=<header text>.
+// Params: type=all|image|video, bucket=<album id>, fav=1, title=<header text>, album=<your album>, place=<town>, tag=<one of your tags>.
+// 11/24 TAGS (plan step 3): the viewer's Tags button, Tag / Remove tag on many at once, and a list per tag (lib/tags.js).
 
 import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
@@ -9,6 +10,7 @@ import { canRead, listMedia, thumbnailUrl, fullImageUrl, heart, myAlbums, hasFul
 import { pending as vaultPending } from './vault.js';
 import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum, addManyToAlbum, removeManyFromAlbum } from '../lib/mine.js';
 import { cloudFullUrl } from '../lib/cloud-images.js';
+import { tagsOf, addTags, removeTag, tagMany, allTags, parseTags, taggedSnapItems } from '../lib/tags.js';
 import * as places from '../lib/places.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
@@ -22,7 +24,8 @@ export async function render(root, params, ctx) {
   const fav = params.fav === '1';
   const albumId = params.album || null;   // one of your own albums (11/22)
   const placeKey = params.place || null;  // 0.7.0: one town from Places
-  const title = (albumId && albumName(albumId)) || params.title || (type === 'video' ? 'Videos' : 'All Photos');
+  const tagKey = params.tag || null;      // 11/24: one of your tags
+  const title = (albumId && albumName(albumId)) || params.title || (tagKey ? '#' + tagKey : '') || (type === 'video' ? 'Videos' : 'All Photos');
   const access = ctx.access;
 
   root.innerHTML = `<div class="screen">
@@ -30,7 +33,7 @@ export async function render(root, params, ctx) {
       <button class="icon-btn" id="back" aria-label="Back">${icons.back}</button>
       <h1>${esc(title)}</h1><span class="count" id="count"></span><button class="pill-btn" id="selBtn">Select</button>${albumId ? `<button class="pill-btn" id="albumEdit">Edit</button>` : ''}
     </div>
-    ${bucketId || albumId || placeKey ? '' : `<div class="chips">
+    ${bucketId || albumId || placeKey || tagKey ? '' : `<div class="chips">
       <button class="chip ${type === 'all' && !fav ? 'on' : ''}" data-go="#photos?type=all&title=All%20Photos">All</button>
       <button class="chip ${type === 'image' && !fav ? 'on' : ''}" data-go="#photos?type=image&title=Photos">Photos</button>
       <button class="chip ${type === 'video' ? 'on' : ''}" data-go="#videos">Videos</button>
@@ -42,13 +45,22 @@ export async function render(root, params, ctx) {
     <div id="status"></div>
     <div class="selbar" id="selbar" hidden><button class="icon-btn" id="selX" aria-label="Stop selecting">${icons.close}</button>
       <b id="selN">Tap photos to pick them</b><span style="flex:1"></span><button class="pill-btn" id="selAll">All</button>
-      ${albumId ? '<button class="pill-btn" id="selOut">Take out</button>' : ''}<button class="primary-btn" id="selAdd">Add to album</button></div>
+      ${albumId ? '<button class="pill-btn" id="selOut">Take out</button>' : tagKey ? '<button class="pill-btn" id="selUntag">Remove tag</button>' : ''}<button class="pill-btn" id="selTag">Tag</button><button class="primary-btn" id="selAdd">Add to album</button></div>
   </div>`;
 
   const list = root.querySelector('#list');
   // 0.7.0 Places: one town's photos (remembered by lib/places.js), a page at a time like every other list
   async function placePage(off) {
     const all = await places.items(placeKey);
+    const page = all.slice(off, off + PAGE);
+    return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
+  }
+  // 11/24 one tag's photos: the phone app reads its kept snapshots; the web version looks among the photos picked this visit
+  async function tagPage(off) {
+    let all = [];
+    if (access.web) {
+      for (let o = 0, more = true; more && o < 100000; ) { const r = await listMedia({ type: 'all', offset: o, limit: 500 }); all = all.concat((r.items || []).filter((i) => tagsOf(i).includes(tagKey))); o = r.offset + (r.items || []).length; more = r.hasMore && (r.items || []).length > 0; }
+    } else all = taggedSnapItems(tagKey);
     const page = all.slice(off, off + PAGE);
     return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
   }
@@ -153,13 +165,13 @@ export async function render(root, params, ctx) {
     loading = true;
     status.innerHTML = '<div class="loading">Loading photos...</div>';
     try {
-      const r = placeKey ? await placePage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
+      const r = placeKey ? await placePage(offset) : tagKey ? await tagPage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
       if (!alive) return;
       offset = r.offset + r.items.length;
       hasMore = r.hasMore;
       root.querySelector('#count').textContent = `${formatCount(r.total)} ${r.total === 1 ? 'item' : 'items'}`;
       if (offset === 0 && !r.items.length) {
-        list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div><b>Nothing here yet</b>${albumId ? 'Open any photo and tap "Add to album" to put it here.' : fav ? (access.web ? 'Open a photo and tap the heart - it stays on your phone.' : 'Heart a photo in your phone\'s gallery and it shows up here.') : 'No photos or videos on this phone match.'}</div>`;
+        list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div><b>Nothing here yet</b>${tagKey ? 'Open any photo and tap Tags to add this tag.' : albumId ? 'Open any photo and tap "Add to album" to put it here.' : fav ? (access.web ? 'Open a photo and tap the heart - it stays on your phone.' : 'Heart a photo in your phone\'s gallery and it shows up here.') : 'No photos or videos on this phone match.'}</div>`;
       } else {
         appendItems(r.items);
       }
@@ -191,7 +203,7 @@ export async function render(root, params, ctx) {
   function paintSel() {
     root.querySelector('#selN').textContent = picked.size ? `${formatCount(picked.size)} selected` : 'Tap photos to pick them';
     root.querySelector('#selAdd').disabled = !picked.size;
-    const out = root.querySelector('#selOut'); if (out) out.disabled = !picked.size;
+    for (const id of ['#selOut', '#selTag', '#selUntag']) { const b = root.querySelector(id); if (b) b.disabled = !picked.size; }
   }
   function setSelecting(on) {
     selecting = on;
@@ -245,6 +257,19 @@ export async function render(root, params, ctx) {
   });
   const pickedItems = () => [...picked].map((id) => byId.get(id)).filter(Boolean);
   root.querySelector('#selAdd').addEventListener('click', () => albumPickerMany(pickedItems(), () => setSelecting(false)));
+  root.querySelector('#selTag').addEventListener('click', async () => {
+    const items = pickedItems();
+    const text = await askText({ title: `Tag ${formatCount(items.length)} ${items.length === 1 ? 'photo' : 'photos'}`, label: 'A word or a few - like "beach" or "grandkids". Commas make more than one tag.', ok: 'Tag' });
+    const list = parseTags(text); if (!list.length) return;
+    let n = 0; for (const tg of list) n = Math.max(n, tagMany(items, tg));
+    setSelecting(false);
+    note(`Tagged ${list.map((x) => '#' + x).join(' ')}`);
+  });
+  const su = root.querySelector('#selUntag');
+  if (su) su.addEventListener('click', () => {
+    const items = pickedItems(); for (const it of items) removeTag(it, tagKey);
+    setSelecting(false); note(`#${tagKey} taken off ${formatCount(items.length)} - the photos themselves stay where they are`); ctx.rerender();
+  });
   const so = root.querySelector('#selOut');
   if (so) so.addEventListener('click', () => {
     const n = removeManyFromAlbum(albumId, pickedItems());
@@ -273,11 +298,12 @@ export function openViewer(item) {
   // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here.
   // 11/22 album sync: an album photo kept only in the cloud (put in on another phone) is fetched from the cloud to show it.
   const cloud = !!item.cloud;
-  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : true ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button>${hasFullFile(item) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}` : ''}</div>
+  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : true ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="totags">${icons.tag} Tags</button>${hasFullFile(item) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}` : ''}</div>
     <div class="stage">${cloud ? '<div class="loading">Loading from the cloud...</div>' : isVideo ? (hasFullFile(item) ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : item.web ? `<img alt="" src="${esc(fullImageUrl(item))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
     ${cloud ? '<div class="small-note">Kept in your cloud backup - this photo is in the album on another phone or the web.</div>' : !hasFullFile(item) ? `<div class="small-note">Small copy - pick this photo again to see it full size${item.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
     <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${item.favorite ? ' &middot; Favorite' : ''}<br>
-      ${esc(item.name || '')}<br>${esc([formatBytes(item.size), dims, item.bucketName, isVideo ? formatDuration(item.durationMs) : ''].filter(Boolean).join(' · '))}</div>`;
+      ${esc(item.name || '')}<br>${esc([formatBytes(item.size), dims, item.bucketName, isVideo ? formatDuration(item.durationMs) : ''].filter(Boolean).join(' · '))}</div>
+    <div class="vtags" id="vtags"></div>`;
   let cloudUrl = '';
   v.querySelector('button').addEventListener('click', () => { v.remove(); if (cloudUrl) URL.revokeObjectURL(cloudUrl); });
   if (cloud) {
@@ -291,6 +317,10 @@ export function openViewer(item) {
   if (tv) tv.addEventListener('click', () => { vaultPending.item = item; v.remove(); location.hash = '#vault'; });
   const ta = v.querySelector('#toalbum');
   if (ta) ta.addEventListener('click', () => albumPicker(item));
+  const paintTags = () => { const el = v.querySelector('#vtags'); if (el) el.innerHTML = cloud ? '' : tagsOf(item).map((x) => `<span>#${esc(x)}</span>`).join(''); };
+  paintTags();
+  const tg = v.querySelector('#totags');
+  if (tg) tg.addEventListener('click', () => tagSheet(item, paintTags));
   const hb = v.querySelector('#heart');
   if (hb) hb.addEventListener('click', () => {
     const on = heart(item);
@@ -322,6 +352,30 @@ function albumPickerMany(items, done) {
       if (n) put(createAlbum(n));
     }
   });
+  document.body.appendChild(back);
+}
+// 11/24 TAGS: this photo's tags (tap one to take it off), your other tags to add with one tap, and a box for new ones.
+function tagSheet(item, done) {
+  const back = document.createElement('div');
+  back.className = 'sheet-backdrop';
+  const draw = () => {
+    const mine = tagsOf(item), others = allTags().filter((x) => !mine.includes(x.tag)).slice(0, 12);
+    back.innerHTML = `<div class="sheet tag-sheet"><div class="grab"></div><h2>Tags</h2>
+      <p>Your own words for this photo - like "beach" or "grandkids". Kept on this phone.</p>
+      <div class="chips wrap">${mine.length ? mine.map((x) => `<button class="chip on" data-off="${esc(x)}" aria-label="Take off #${esc(x)}">#${esc(x)} &#10005;</button>`).join('') : '<span class="note">No tags yet.</span>'}</div>
+      ${others.length ? `<div class="section-title">Your tags</div><div class="chips wrap">${others.map((x) => `<button class="chip" data-on="${esc(x.tag)}">+ #${esc(x.tag)}</button>`).join('')}</div>` : ''}
+      <input class="text-in" maxlength="80" placeholder="Add tags - commas for more than one" aria-label="New tags">
+      <div class="actions"><button class="primary-btn" data-add>Add</button><button class="ghost-btn" data-done>Done</button></div></div>`;
+    const input = back.querySelector('input');
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { addTags(item, parseTags(input.value)); done(); draw(); } });
+  };
+  back.addEventListener('click', (e) => {
+    if (e.target === back || e.target.closest('[data-done]')) { back.remove(); return; }
+    const off = e.target.closest('[data-off]'); if (off) { removeTag(item, off.dataset.off); done(); draw(); return; }
+    const on = e.target.closest('[data-on]'); if (on) { addTags(item, [on.dataset.on]); done(); draw(); return; }
+    if (e.target.closest('[data-add]')) { const input = back.querySelector('input'); const list = parseTags(input.value); if (list.length) { addTags(item, list); done(); draw(); } }
+  });
+  draw();
   document.body.appendChild(back);
 }
 function note(text) {
