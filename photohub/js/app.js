@@ -25,8 +25,9 @@ import * as eventsScreen from './screens/events.js';
 import * as petsScreen from './screens/pets.js';
 import * as alerts from './native/alerts.js';
 import * as runner from './backup/runner.js';
+import * as updates from './lib/updates.js';
 
-export const APP_VERSION = '0.7.10';
+export const APP_VERSION = '0.7.11';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
@@ -133,31 +134,6 @@ async function start() {
   runner.start().catch(() => {});
 }
 
-// 11/25 (Scott: "vacations button still says coming"): a web page that stays open keeps running the copy it loaded - his still had the
-// pre-Trips build. The web version now asks for the newest version number when you come back to it (and every 30 minutes) and, if it is
-// newer, shows a bar with a Reload button. Never inside the phone app (Google Play updates that).
-function watchForUpdates() {
-  if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) return;
-  let told = false;
-  const check = async () => {
-    if (told || document.visibilityState !== 'visible' || !navigator.onLine) return;
-    try {
-      const r = await fetch('./js/app.js', { cache: 'no-store' });
-      const m = r.ok && (await r.text()).match(/APP_VERSION = '([\d.]+)'/);
-      if (!m || m[1] === APP_VERSION) return;
-      told = true;
-      const bar = document.createElement('div');
-      bar.className = 'update-bar';
-      bar.setAttribute('role', 'status');
-      bar.innerHTML = `<span>A newer Photo Hub (${m[1]}) is ready.</span><button type="button">Reload</button>`;
-      bar.querySelector('button').addEventListener('click', () => location.reload());
-      document.body.appendChild(bar);
-    } catch (e) { /* offline or blocked - try again later */ }
-  };
-  document.addEventListener('visibilitychange', check);
-  setInterval(check, 30 * 60 * 1000);
-  setTimeout(check, 4000);
-}
-
 start();
-watchForUpdates();
+// 11/25 the Update ready bar, What's New and Check for updates - the same as every Hub app (lib/updates.js)
+updates.start(APP_VERSION);

@@ -330,11 +330,24 @@ h1, h2, h3 { margin: 0; }
 .album-pick .ct { color: var(--muted); font-size: 13px; }
 .text-in { width: 100%; margin-top: 12px; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--text); font-size: 16px; }
 
-/* 11/25 web version: "a newer Photo Hub is ready - Reload" (app.js watchForUpdates) */
-.update-bar { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 60; display: flex; gap: 10px;
-  align-items: center; padding: 12px 14px; border-radius: 14px; background: #1d4ed8; color: #fff; font-size: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
-.update-bar span { flex: 1; }
-.update-bar button { flex: none; padding: 8px 14px; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 700; }
+/* 11/25 web version (app.js watchForUpdates): the SAME big green "Update ready" bar as every Hub app (Day Hub styles.css .upd-bar),
+   just above Photo Hub's bottom bar. 0.7.11, Scott: "doesnt look like it gets green bar for updates". */
+.upd-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 60;
+  width: min(560px, calc(100% - 20px)); display: flex; align-items: center; gap: 10px; padding: 9px 9px 9px 13px; border: 2px solid #bbf7d0;
+  border-radius: 16px; cursor: pointer; text-align: left; font: inherit; color: #fff;
+  background: linear-gradient(90deg, #15803d, #22c55e, #15803d); background-size: 200% 100%;
+  animation: updGlow 1.6s ease-in-out infinite, updShine 2.6s linear infinite; }
+.upd-bar .upd-ic { flex: none; font-size: 26px; line-height: 1; }
+.upd-bar .upd-t { flex: 1; min-width: 0; }
+.upd-bar .upd-t b { display: block; font-size: 17px; font-weight: 800; line-height: 1.2; }
+.upd-bar .upd-t small { display: block; font-size: 13px; font-weight: 600; line-height: 1.25; opacity: .95; }
+.upd-bar .upd-go { flex: none; padding: 10px 14px; border-radius: 12px; background: #fff; color: #166534; font-size: 15px; font-weight: 800; white-space: nowrap; }
+.upd-bar.busy { animation: none; background: #15803d; cursor: progress; }
+@keyframes updGlow { 0%, 100% { box-shadow: 0 8px 22px rgba(0,0,0,.35), 0 0 0 0 rgba(134,239,172,.85); } 50% { box-shadow: 0 8px 22px rgba(0,0,0,.35), 0 0 0 9px rgba(134,239,172,0); } }
+@keyframes updShine { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+@media (prefers-reduced-motion: reduce) { .upd-bar { animation: none; box-shadow: 0 8px 22px rgba(0,0,0,.35), 0 0 0 3px rgba(134,239,172,.6); } }
+.upd-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 61; max-width: calc(100% - 32px);
+  padding: 10px 16px; border-radius: 12px; background: #15803d; color: #fff; font-weight: 700; font-size: 14px; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
 
 /* 11/25 swipe between photos (lib/swipe.js - Scott: "pan left to right and back ... like normal galleries work") */
 .viewer .vbody { display: contents; }

@@ -6,6 +6,7 @@
 import { icons } from '../icons.js';
 import { askForPhotoAccess, openSheet } from '../ui.js';
 import { canRead, isNative } from '../native/media-library.js';
+import * as updates from '../lib/updates.js';
 
 export const PRIVACY_URL = 'https://smarvel1963-ops.github.io/hubs/photohub/privacy.html';
 
@@ -31,6 +32,8 @@ export async function render(root, params, ctx) {
       <span class="txt"><b>Privacy policy</b><span>What stays on your phone and what doesn't</span></span>${icons.chevron}</button>
     <button class="row" id="about"><span class="ico">${icons.info}</span>
       <span class="txt"><b>About this build</b><span>Photo Hub ${ctx.version}</span></span>${icons.chevron}</button>
+    ${updates.canCheck() ? `<button class="row" id="updcheck"><span class="ico">${icons.sparkles}</span>
+      <span class="txt"><b>${updates.updateReady() ? 'Update now' : 'Check for updates'}</b><span>Version ${ctx.version}${updates.updateReady() ? ` - ${updates.updateReady()} is ready` : ''}</span></span>${icons.chevron}</button>` : ''}
     <p class="note">Photo Hub by Marvel Corp. Your photos stay on your phone unless you turn on Cloud Backup or link your own PC.
       Photo Hub never deletes a photo on its own - only ones you choose to clean up, and Android asks you first.</p>
   </div>`;
@@ -43,6 +46,9 @@ export async function render(root, params, ctx) {
       const a = await askForPhotoAccess(ctx.access);
       ctx.setAccess(a);
       ctx.rerender();
+    } else if (b.id === 'updcheck') {   // 11/25 like a Hub's Settings: Check for updates / Update now (web version)
+      if (updates.updateReady()) document.getElementById('updBar')?.click();
+      else { await updates.checkFromMenu(); ctx.rerender(); }
     } else if (b.id === 'privacy') {
       window.open(isNative() ? PRIVACY_URL : './privacy.html', '_blank', 'noopener');
     } else if (b.id === 'about') {
