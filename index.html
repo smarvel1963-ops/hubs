@@ -189,6 +189,8 @@ footer a { color: var(--muted); }
       <div class="btns"><a class="btn go" href="photohub/">Open Photo Hub</a></div>
     </article>
   </div>
+  <!-- 11/24 the last row of the app list: send any app to anyone - its Whop page (Scott: "forward app install to anyone but sending them to app on whop") -->
+  <div class="app-send" data-appsend="" style="max-width:640px;margin:6px auto 0;padding:0 4px"></div>
 
   <section>
     <h3>Add AI to any Hub app</h3>
@@ -249,5 +251,7 @@ document.getElementById("waitForm").addEventListener("submit", async (e) => {
   fetch("https://usemart.net/api/visit", { method: "POST", mode: "cors", credentials: "omit", keepalive: true,
     headers: { "content-type": "text/plain" }, body: JSON.stringify({ site: s }) }).catch(function () {}); } catch (e) {} })();
 </script>
+<script src="/dayhub/voicefill.js" defer></script>   <!-- 11/24 a mic at the right end of every typing box, shared with every app (Scott: "all apps old and new") -->
+<script src="/dayhub/appsend.js" defer></script>   <!-- 11/24 "Send an app to someone" under the app list (Whop links) -->
 </body>
 </html>
