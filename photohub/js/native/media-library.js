@@ -50,13 +50,30 @@ export function canRead(access) {
   return !!access && (access.state === 'granted' || access.state === 'limited');
 }
 
+// 11/25 (Clean Up may now free album photos - Scott: albums "availbe for easy access but not all stored in phone"): an album's photo that is
+// no longer on the phone shows from the cloud. Asks the phone which of the album's photos it still has (getItems, 0.7.8+); a phone app
+// that can't say keeps the old behaviour (every remembered photo counts as here).
+async function albumOnPhoneOrCloud(albumId) {
+  const snap = mine.albumItems(albumId);
+  const ids = snap.filter((i) => !i.cloud).map((i) => String(i.id));
+  if (!ids.length || typeof lib().getItems !== 'function') return snap;
+  // 11/25 review: with "selected photos only" access the phone only answers for the picked ones - keep the remembered photos then
+  const acc = await getAccess().catch(() => null);
+  if (!acc || acc.state !== 'granted') return snap;
+  const here = new Set();
+  try {
+    for (let i = 0; i < ids.length; i += 500) for (const it of (await lib().getItems({ ids: ids.slice(i, i + 500) })).items || []) here.add(String(it.id));
+  } catch (e) { return snap; }
+  return mine.albumItems(albumId, (k) => here.has(k.slice(2)));
+}
+
 /** opts: { offset, limit, type: 'all'|'image'|'video', bucketId, favoritesOnly } */
 export async function listMedia(opts = {}) {
   if (!isNative()) return web.listMedia(opts);
   const offset = opts.offset || 0, limit = opts.limit || 120;
   // phone app 0.2.0: your own albums + Favorites (Android's favorites AND Photo Hub hearts) come from kept snapshots
   if (opts.albumId || opts.favoritesOnly) {
-    let all = opts.albumId ? mine.albumItems(opts.albumId) : await nativeFavorites();
+    let all = opts.albumId ? await albumOnPhoneOrCloud(opts.albumId) : await nativeFavorites();
     if (opts.type && opts.type !== 'all') all = all.filter((i) => i.type === opts.type);
     const page = all.slice(offset, offset + limit);
     return { items: page, offset, total: all.length, hasMore: offset + page.length < all.length };

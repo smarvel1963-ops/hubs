@@ -1,6 +1,7 @@
 // cleanup.js - C:\MarvelApps\photohub\www\js\screens\cleanup.js
 // FREE UP PHONE SPACE (#cleanup) - 11/25, plan step 5 (Scott 11/24 via Desktop: "he will finish photo app"). Phone app only.
-// 1. Lists the photos that MAY go: backed up, older than 30 days, not a favorite, not hearted / in an album / tagged in Photo Hub.
+// 1. Lists the photos that MAY go: backed up, older than 30 days, not a favorite, not hearted / tagged in Photo Hub (11/25: album photos
+//    may go - Scott: albums "availbe for easy access but not all stored in phone"; the album shows them from the cloud).
 // 2. "Check them" reads each file NOW and asks the cloud NOW (native/cleanup.js -> CleanupPlugin -> CleanupCore): same photo as the
 //    backup, and the cloud holds it at the same size. Anything that can't be checked stays.
 // 3. Only photos that passed are offered; the person can untick any. "Move to the phone's trash" -> Photo Hub asks, then Android asks.
@@ -29,8 +30,9 @@ export async function render(root, params, ctx) {
       <button class="ghost-btn" id="putBack" disabled>Put back</button>
     </section>
     <p class="small-note" style="margin-top:18px">Clean Up only offers a photo when its backup is checked right now: the photo on your phone
-      is read again and must match the backup exactly, and your cloud must hold it at the same size. Favorites, photos you hearted, put in an
-      album or tagged, and photos from the last ${cleanup.KEEP_DAYS} days always stay. Nothing goes without your OK and Android's.</p>
+      is read again and must match the backup exactly, and your cloud must hold it at the same size. Favorites, photos you hearted (Keep on phone)
+      or tagged, and photos from the last ${cleanup.KEEP_DAYS} days always stay. A photo in an album can go - your album then shows it from the cloud.
+      Nothing goes without your OK and Android's.</p>
   </div>`;
   root.querySelector('#back').addEventListener('click', () => (history.length > 1 ? history.back() : ctx.go('#storage')));
   const body = root.querySelector('#cbody');
@@ -93,7 +95,7 @@ export async function render(root, params, ctx) {
       c.notBackedUp ? `${formatCount(c.notBackedUp)} not backed up yet` : '',
       c.recent ? `${formatCount(c.recent)} from the last ${cleanup.KEEP_DAYS} days` : '',
       c.favorites ? `${formatCount(c.favorites)} favorites` : '',
-      c.kept ? `${formatCount(c.kept)} hearted, in an album or tagged` : '',
+      c.kept ? `${formatCount(c.kept)} hearted or tagged` : '',
     ].filter(Boolean);
     if (r.needsLocation) {
       body.innerHTML = `<section class="card"><div class="card-head">${icons.pin}<h2>One more OK first</h2></div>

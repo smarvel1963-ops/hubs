@@ -1,9 +1,9 @@
 // sendto.js - C:\MarvelApps\photohub\www\js\screens\sendto.js
 // SEND TO (11/25, Scott: "when you hold your finger on a pic a small drop down pops up for where you can send that pick"). Hold a photo
-// anywhere (Photos, Gallery, Memories, To Sort) and a small menu opens right by your finger: Family, Personal Info, Cool Stuff (the home
+// anywhere (Photos, Gallery, Memories, Photo Inbox, Unsorted Photos) and a small menu opens right by your finger: Family, Personal Info, Cool Stuff (the home
 // folders), then every album you made, "+ New album", "Private Vault" and - where you can pick several - "Select more" (what holding a
 // photo did before). "Send" puts the photo in that album; the photo itself stays where it is on the phone, and the album follows you to
-// the cloud, the web and your PC when Cloud Backup is on. To Sort's "Send all" uses the same menu for a whole group.
+// the cloud, the web and your PC when Cloud Backup is on. The Inbox's and Unsorted Photos' "Send all" use the same menu for a whole group.
 
 import { icons } from '../icons.js';
 import { esc, askText } from '../ui.js';

@@ -101,7 +101,9 @@ export function deleteAlbum(id) {   // the photos themselves are never touched
   albums = albums.filter((x) => x.id !== id); gone[id] = Date.now(); saveAlbums();
 }
 export function albumName(id) { const a = albums.find((x) => x.id === id); return a ? a.name : ''; }
-const isIn = (a, i) => (i.cloud ? (a.cloud[i.sha256] || 0) > 0 : a.members.includes(sigOf(i)));
+// 11/25 review: a phone photo that Clean Up freed comes back as a cloud item - it is still that album member (matched by its SHA-256)
+const memberBySha = (a, sha) => a.members.find((k) => a.sha[k] === sha);
+const isIn = (a, i) => (i.cloud ? (a.cloud[i.sha256] || 0) > 0 || !!memberBySha(a, i.sha256) : a.members.includes(sigOf(i)));
 export function albumsWith(i) { return albums.filter((a) => isIn(a, i)).map((a) => a.id); }
 export function inAlbum(id, i) { const a = albums.find((x) => x.id === id); return !!a && isIn(a, i); }
 /** Puts the photo in the album or takes it out; returns true when it is now in. */
@@ -109,6 +111,12 @@ export function toggleInAlbum(id, i) {
   const a = albums.find((x) => x.id === id); if (!a) return false;
   const now = Date.now();
   if (i.cloud) {   // a photo that is only in the cloud (in this album on another phone / the web)
+    const mem = memberBySha(a, i.sha256);
+    if (mem) {   // 11/25: a freed phone photo - taking it out takes the member out
+      a.members.splice(a.members.indexOf(mem), 1); a.at[mem] = now;
+      if ((a.cloud[i.sha256] || 0) > 0) a.cloud[i.sha256] = -now;
+      saveAlbums(); return false;
+    }
     const inn = (a.cloud[i.sha256] || 0) > 0;
     a.cloud[i.sha256] = inn ? -now : now;
     if (!inn) a.cmeta[i.sha256] = a.cmeta[i.sha256] || metaOf(i);
@@ -127,7 +135,7 @@ export function addManyToAlbum(id, items) {
   const now = Date.now();
   let n = 0;
   for (const i of items) {
-    if (i.cloud) { if (!((a.cloud[i.sha256] || 0) > 0)) { a.cloud[i.sha256] = now; a.cmeta[i.sha256] = a.cmeta[i.sha256] || metaOf(i); n++; } continue; }
+    if (i.cloud) { if (!((a.cloud[i.sha256] || 0) > 0) && !memberBySha(a, i.sha256)) { a.cloud[i.sha256] = now; a.cmeta[i.sha256] = a.cmeta[i.sha256] || metaOf(i); n++; } continue; }
     const s = sigOf(i);
     if (a.members.includes(s)) continue;
     a.members.push(s); keepSnap(i); a.meta[s] = metaOf(i); a.at[s] = now; n++;
@@ -142,7 +150,14 @@ export function removeManyFromAlbum(id, items) {
   const now = Date.now();
   let n = 0;
   for (const i of items) {
-    if (i.cloud) { if ((a.cloud[i.sha256] || 0) > 0) { a.cloud[i.sha256] = -now; n++; } continue; }
+    if (i.cloud) {
+      let hit = false;
+      if ((a.cloud[i.sha256] || 0) > 0) { a.cloud[i.sha256] = -now; hit = true; }
+      const mem = memberBySha(a, i.sha256);   // 11/25: a freed phone photo shown from the cloud
+      if (mem) { a.members.splice(a.members.indexOf(mem), 1); a.at[mem] = now; hit = true; }
+      if (hit) n++;
+      continue;
+    }
     const s = sigOf(i), at = a.members.indexOf(s);
     if (at < 0) continue;
     a.members.splice(at, 1); a.at[s] = now; n++;
@@ -159,13 +174,17 @@ export function cloudItems(id, present = () => true) {
   const add = (sha, m) => { if (!out.has(sha)) out.set(sha, { id: 'c:' + sha, cloud: true, sha256: sha, type: m && m.v ? 'video' : 'image', mime: '',
     name: (m && m.n) || '', date: (m && m.d) || 0, dateModified: 0, size: 0, favorite: false, bucketId: 'cloud', bucketName: 'In the cloud' }); };
   for (const [sha, t] of Object.entries(a.cloud)) if (t > 0) add(sha, a.cmeta[sha]);
-  for (const k of a.members) if (!present(k) && a.sha[k]) add(a.sha[k], a.meta[k]);
+  // 11/25 review: members from before 11/22 have no meta - their kept snapshot still knows the date, name and photo / video
+  const fromSnap = (x) => (x ? { d: Number(x.date) || 0, v: x.type === 'video' ? 1 : 0, n: x.name || '' } : null);
+  for (const k of a.members) if (!present(k) && a.sha[k]) add(a.sha[k], a.meta[k] || fromSnap(snaps[k]));
   return [...out.values()];
 }
-/** Phone app: an album's photos (snapshots + cloud-only ones), newest first. */
-export function albumItems(id) {
+/** Phone app: an album's photos (snapshots + cloud-only ones), newest first.
+ *  11/25: onPhone(key) - when given - says which members are still on the phone; one that is not (Clean Up freed it, or it was deleted)
+ *  shows from the cloud when its backup is known, and is left out when it is not. */
+export function albumItems(id, onPhone = null) {
   const a = albums.find((x) => x.id === id); if (!a) return [];
-  const local = snapItems(a.members);
+  const local = snapItems(a.members).filter((x) => !onPhone || onPhone(`n:${x.id}`));
   const have = new Set(local.map((x) => `n:${x.id}`));
   return local.concat(cloudItems(id, (k) => have.has(k))).sort((x, y) => y.date - x.date);
 }
@@ -187,5 +206,10 @@ export function snapFor(key) { return snaps[key] || null; }
 
 /** true when this key is hearted (web version: name|size|date). */
 export function heartSig(s) { return hearts.has(s); }
-/** 11/25 Clean Up / Duplicates: every photo you hearted or put in an album (their keys) - those always stay on the phone. */
+/** 11/25 Duplicates: every photo you hearted or put in an album (their keys) - the copy that stays. */
 export function keptKeys() { const k = new Set(hearts); for (const a of albums) for (const m of a.members) k.add(m); return [...k]; }
+/** 11/25 Free Up Phone Space: only hearted photos ("Keep on phone") stay - album photos may go once safe in the cloud. */
+export function heartKeys() { return [...hearts]; }
+/** 11/25 ...EXCEPT an album photo whose cloud copy the album does not know yet (album sync has not put its SHA-256 in): it stays on the
+ *  phone, so an album can never lose a photo it could not show from the cloud. */
+export function albumKeysWithoutCloud() { const k = new Set(); for (const a of albums) for (const m of a.members) if (!a.sha[m]) k.add(m); return [...k]; }

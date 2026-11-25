@@ -24,11 +24,12 @@ import * as copiesScreen from './screens/copies.js';
 import * as eventsScreen from './screens/events.js';
 import * as petsScreen from './screens/pets.js';
 import * as sortScreen from './screens/sort.js';
+import * as inboxScreen from './screens/inbox.js';
 import * as alerts from './native/alerts.js';
 import * as runner from './backup/runner.js';
 import * as updates from './lib/updates.js';
 
-export const APP_VERSION = '0.8.0';
+export const APP_VERSION = '0.8.1';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
@@ -48,7 +49,8 @@ const ROUTES = {
   copies: { mod: copiesScreen, tab: 'cloud' },    // 11/25 Duplicate Cleanup (phone app)
   events: { mod: eventsScreen, tab: 'albums' },   // 11/25 Events - your big days
   pets: { mod: petsScreen, tab: 'albums' },       // 11/25 Pets - dogs, cats, other pets (phone app)
-  sort: { mod: sortScreen, tab: 'home' },         // 11/25 To Sort - photos nobody sorted for a week, by day + place
+  sort: { mod: sortScreen, tab: 'home' },         // 11/25 Unsorted Photos (was To Sort) - left unsorted after a week, by day + place
+  inbox: { mod: inboxScreen, tab: 'home' },       // 11/25 Photo Inbox - new photos (camera, texts, downloads) until you sort them
 };
 
 const TABS = [

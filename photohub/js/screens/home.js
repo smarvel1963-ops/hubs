@@ -11,6 +11,7 @@ import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, getLibrarySummary, thumbnailUrl, myAlbums } from '../native/media-library.js';
 import { HOME_FOLDERS, ensureAlbum } from '../lib/mine.js';
 import * as sorting from '../lib/sort.js';
+import * as account from '../lib/account.js';
 import { formatCount } from '../lib/timeline.js';
 import { onThisDay } from './memories.js';
 import { hasNew } from './alerts.js';
@@ -53,12 +54,13 @@ export async function render(root, params, ctx) {
         ${icons.chevron}</button>`}
 
     <!-- 11/25 (Scott: "at that home page you need to add family, personal info and cool stuff so those have easy access"): the three home
-         folders + To Sort (photos nobody sorted for a week), one tap each -->
+         folders + the Photo Inbox (new photos until you sort them), one tap each -->
     <div class="hfolders">
       ${HOME_FOLDERS.map((f, i) => `<button class="hfolder hf${i}" data-folder="${esc(f.id)}"><span class="hf-ico">${icons[f.icon]}</span>
         <b>${esc(f.name)}</b><span class="hf-n" data-hfn="${esc(f.id)}"></span></button>`).join('')}
-      <button class="hfolder hf-sort" data-go="#sort"><span class="hf-ico">${icons.inbox}</span><b>To Sort</b><span class="hf-n" id="sortN"></span></button>
+      <button class="hfolder hf-sort" data-go="#inbox"><span class="hf-ico">${icons.inbox}</span><b>Photo Inbox</b><span class="hf-n" id="sortN"></span></button>
     </div>
+    <div id="inboxWarn"></div>
 
     <div id="memStrip"></div>
 
@@ -94,7 +96,14 @@ export async function render(root, params, ctx) {
 
   const bellDot = (memToday) => hasNew(memToday).then((n) => { const d = root.querySelector('#bell .dot'); if (alive && d) d.hidden = !n; }).catch(() => {});
   if (!readable) { bellDot(false); return () => { alive = false; }; }
-  sorting.count().then((c) => { const n = root.querySelector('#sortN'); if (alive && n && c.n) n.textContent = `${formatCount(c.n)}${c.more ? '+' : ''}`; }).catch(() => {});
+  // 11/25 Photo Inbox: how many new photos wait, and the warning for the next ones that leave for Unsorted Photos (Scott: "should also have
+  // warning if in box is going to empty to cloud on such and such date")
+  sorting.inboxCount().then((c) => {
+    if (!alive) return;
+    const n = root.querySelector('#sortN'); if (n && c.n) n.textContent = `${formatCount(c.n)}${c.more ? '+' : ''}`;
+    const w = root.querySelector('#inboxWarn');
+    if (w && c.next) w.innerHTML = `<button class="banner inbox-warn" data-go="#inbox">${icons.calHeart}<span style="flex:1">${esc(sorting.leaveText(c.next, !!(account.current && account.current())))} - sort them first?</span>${icons.chevron}</button>`;
+  }).catch(() => {});
 
   const setPic = async (sel, item, cls = '') => {
     if (!item) return;

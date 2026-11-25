@@ -380,3 +380,8 @@ h1, h2, h3 { margin: 0; }
 .sort .sort-t i { font-style: normal; font-size: 12.5px; color: var(--muted, #6b7799); display: inline-flex; align-items: center; gap: 4px; }
 .sort .sort-t i svg { width: 13px; height: 13px; }
 .sort .sort-n { font-size: 12.5px; color: var(--muted, #6b7799); }
+/* 11/25 PHOTO INBOX: the "leaves your Inbox on ..." warning + each group's leaving day */
+.inbox-warn { width: 100%; margin: 10px 0 4px; text-align: left; color: var(--text, #10204a); font-weight: 700; }
+.inbox-warn svg { width: 20px; height: 20px; flex: none; color: #d97706; }
+.sort .sort-leave { font-style: normal; font-size: 12px; font-weight: 700; color: #d97706; }
+.sort #toUnsorted { margin-top: 16px; }
