@@ -47,7 +47,7 @@ export async function render(root, params, ctx) {
         <span class="txt"><b>Pick more photos</b><span>Add more from your phone - they stay on your phone.</span></span>
         ${icons.chevron}</button>` : '') : `<button class="row" id="grant">
         <span class="ico">${icons.image}</span>
-        <span class="txt"><b>See your photos here</b><span>${access.web ? 'Pick photos to try it - they stay on your phone.' : access.state === 'unavailable' ? 'Open Photo Hub on your Android phone to see your photos.' : 'Allow photo access - Photo Hub only reads them.'}</span></span>
+        <span class="txt"><b>See your photos here</b><span>${access.web ? 'Pick photos to try it - they stay on your phone.' : access.state === 'unavailable' ? 'Open Photo Hub on your Android phone to see your photos.' : 'Allow photo access to see them here.'}</span></span>
         ${icons.chevron}</button>`}
 
     <div id="memStrip"></div>

@@ -330,6 +330,12 @@ h1, h2, h3 { margin: 0; }
 .album-pick .ct { color: var(--muted); font-size: 13px; }
 .text-in { width: 100%; margin-top: 12px; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--text); font-size: 16px; }
 
+/* 11/25 web version: "a newer Photo Hub is ready - Reload" (app.js watchForUpdates) */
+.update-bar { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 60; display: flex; gap: 10px;
+  align-items: center; padding: 12px 14px; border-radius: 14px; background: #1d4ed8; color: #fff; font-size: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+.update-bar span { flex: 1; }
+.update-bar button { flex: none; padding: 8px 14px; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 700; }
+
 /* 11/25 swipe between photos (lib/swipe.js - Scott: "pan left to right and back ... like normal galleries work") */
 .viewer .vbody { display: contents; }
 /* 11/25 fix (Scott: "slide picks left to right with your fingers not working"): touch-action none - the viewer handles every finger move
