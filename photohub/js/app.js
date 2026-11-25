@@ -22,10 +22,11 @@ import * as alertsScreen from './screens/alerts.js';
 import * as cleanupScreen from './screens/cleanup.js';
 import * as copiesScreen from './screens/copies.js';
 import * as eventsScreen from './screens/events.js';
+import * as petsScreen from './screens/pets.js';
 import * as alerts from './native/alerts.js';
 import * as runner from './backup/runner.js';
 
-export const APP_VERSION = '0.7.7';
+export const APP_VERSION = '0.7.8';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {
@@ -44,6 +45,7 @@ const ROUTES = {
   cleanup: { mod: cleanupScreen, tab: 'cloud' },  // 11/25 Free Up Phone Space (phone app)
   copies: { mod: copiesScreen, tab: 'cloud' },    // 11/25 Duplicate Cleanup (phone app)
   events: { mod: eventsScreen, tab: 'albums' },   // 11/25 Events - your big days
+  pets: { mod: petsScreen, tab: 'albums' },       // 11/25 Pets - dogs, cats, other pets (phone app)
 };
 
 const TABS = [

@@ -96,6 +96,13 @@ export function myAlbums() {
   return mine.albumList().map((a) => { const its = mine.albumItems(a.id); return { id: a.id, name: a.name, created: a.created, total: a.members.length, count: its.length, cover: its[0] || null }; });
 }
 /** true when the full-size photo is on hand (phone app: always; web: picked this visit). */
+/** 11/25 Pets: full items for these phone ids (phone app only; up to 500 at a time). */
+export async function getItems(ids) {
+  if (!isNative() || !ids || !ids.length) return [];
+  if (typeof lib().getItems !== 'function') return [];
+  try { return (await lib().getItems({ ids: ids.map(String) })).items || []; } catch (e) { return []; }
+}
+
 export function hasFullFile(item) { return item && item.cloud ? false : isNative() ? true : web.hasFile(item); }
 /** The full photo / video as a File, for the vault. Phone app: read from the phone (never uploaded). */
 export async function fileForVault(item) {

@@ -14,6 +14,7 @@ import { tagsOf, addTags, removeTag, tagMany, allTags, parseTags, taggedSnapItem
 import * as places from '../lib/places.js';
 import * as trips from '../lib/trips.js';
 import * as events from '../lib/events.js';
+import * as pets from '../native/pets.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 import { attachSwipe } from '../lib/swipe.js';
@@ -30,6 +31,7 @@ export async function render(root, params, ctx) {
   const tagKey = params.tag || null;      // 11/24: one of your tags
   const tripId = params.trip || null;     // 11/24: one trip (lib/trips.js)
   const eventId = params.event || null;   // 11/25: one big day (lib/events.js)
+  const petKind = params.pet || null;     // 11/25: dogs / cats / other pets (native/pets.js, phone app)
   const title = (albumId && albumName(albumId)) || params.title || (tagKey ? '#' + tagKey : '') || (type === 'video' ? 'Videos' : 'All Photos');
   const access = ctx.access;
 
@@ -71,6 +73,11 @@ export async function render(root, params, ctx) {
   }
   async function tripPage(off) {
     const t = await trips.find(tripId); const all = t ? t.items : [];
+    const page = all.slice(off, off + PAGE);
+    return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
+  }
+  async function petPage(off) {
+    const all = await pets.items(petKind);
     const page = all.slice(off, off + PAGE);
     return { items: page, offset: off, total: all.length, hasMore: off + page.length < all.length };
   }
@@ -182,7 +189,7 @@ export async function render(root, params, ctx) {
     loading = true;
     status.innerHTML = '<div class="loading">Loading photos...</div>';
     try {
-      const r = placeKey ? await placePage(offset) : tripId ? await tripPage(offset) : eventId ? await eventPage(offset) : tagKey ? await tagPage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
+      const r = placeKey ? await placePage(offset) : tripId ? await tripPage(offset) : eventId ? await eventPage(offset) : petKind ? await petPage(offset) : tagKey ? await tagPage(offset) : await listMedia({ type, bucketId, favoritesOnly: fav, albumId, offset, limit: PAGE });
       if (!alive) return;
       offset = r.offset + r.items.length;
       hasMore = r.hasMore;

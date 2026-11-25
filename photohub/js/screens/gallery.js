@@ -11,11 +11,13 @@ import { tagsOf, allTags } from '../lib/tags.js';
 import { canRead, listMedia, listAlbums, thumbnailUrl } from '../native/media-library.js';
 import { formatCount } from '../lib/timeline.js';
 import { openViewer } from './photos.js';
+import * as pets from '../native/pets.js';
 
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const CARDS = [
   { key: 'places', label: 'Places', icon: 'pin', go: '#places', cls: 'g-ocean' },   // 0.7.0
   { key: 'trips', label: 'Trips', icon: 'plane', go: '#trips', cls: 'g-blue' },      // 11/24 (lib/trips.js)
+  { key: 'pets', label: 'Pets', icon: 'paw', go: '#pets', cls: 'g-gold', phone: true },   // 11/25 (native/pets.js - phone app only)
   { key: 'calendar', label: 'Calendar', icon: 'calendar', go: 'dates', cls: 'g-orange' },
   { key: 'recent', label: 'Recently Added', icon: 'image', go: '#photos?type=all&title=Recently%20Added', cls: 'g-violet' },
 ];
@@ -34,7 +36,7 @@ export async function render(root, params, ctx) {
       ${[['all', 'All', 'grid'], ['image', 'Photos', 'image'], ['video', 'Videos', 'play'], ['fav', 'Favorites', 'heart'], ['dates', 'Dates', 'calendar'], ['places', 'Places', 'pin'], ['tags', 'Tags', 'tag']]
         .map(([k, l, ic]) => `<button class="chip ichip ${mode === k ? 'on' : ''}" data-f="${k}">${icons[ic]}${l}</button>`).join('')}
     </div>
-    <div class="gcards">${CARDS.map((c) => `<button class="gcard ${c.cls}" data-card="${c.key}" data-cgo="${esc(c.go)}">
+    <div class="gcards">${CARDS.filter((c) => !c.phone || pets.available()).map((c) => `<button class="gcard ${c.cls}" data-card="${c.key}" data-cgo="${esc(c.go)}">
         <span class="gpic"></span><span class="glbl">${icons[c.icon]}${esc(c.label)}</span>${icons.chevron}</button>`).join('')}</div>
     <div class="tl-head">${icons.clock}<h2 id="tlTitle">Timeline</h2></div>
     <div id="tl">${readable ? '<div class="loading">Loading photos...</div>' : `<div class="empty"><div class="ico">${icons.image}</div><b>Your photos show up here</b>
@@ -75,6 +77,7 @@ export async function render(root, params, ctx) {
   const setCard = async (key, item) => { if (!item) return; const url = await thumbnailUrl(item); const el = root.querySelector(`[data-card="${key}"] .gpic`); if (alive && url && el) el.style.backgroundImage = `url("${url}")`; };
   const imgs = all.filter((i) => i.type === 'image');
   setCard('recent', imgs[0]); setCard('calendar', imgs[imgs.length - 1]);
+  if (pets.available()) pets.items('all').then((l) => setCard('pets', l[0])).catch(() => {});
 
   function matches(it, text) {
     if (!text) return true;

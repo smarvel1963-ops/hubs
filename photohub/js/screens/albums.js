@@ -1,7 +1,8 @@
 // albums.js - C:\MarvelApps\photohub\www\js\screens\albums.js
 // Albums: All Photos / Favorites / Videos plus the phone's REAL folders (Camera, Screenshots, WhatsApp...) from
 // MediaStore, each opening the timeline. Places (0.7.0) sorts photos by town. 11/24 (Scott: "Start with steps 1 + 2"): People / Pets / Events stay hidden until built.
-// 11/25 (plan step 6): Trips and Events (your big days, lib/events.js) join Places; People / Pets still wait (on-phone recognition).
+// 11/25 (plan step 6): Trips and Events (your big days, lib/events.js) join Places; Pets the same night (phone app, Scott "yes build
+// pets"); People still waits (his call).
 
 import { icons } from '../icons.js';
 import { esc, comingLater, askForPhotoAccess } from '../ui.js';
@@ -9,6 +10,7 @@ import { canRead, listAlbums, getLibrarySummary, listMedia, thumbnailUrl, myAlbu
 import { createAlbum } from '../lib/mine.js';
 import { askText } from '../ui.js';
 import { formatCount } from '../lib/timeline.js';
+import * as pets from '../native/pets.js';
 
 
 function card({ key = '', name, icon, sub, hash = '', later = '' }) {
@@ -42,7 +44,8 @@ export async function render(root, params, ctx) {
     <div class="section-title">Smart albums</div>
     <div class="album-grid">${card({ key: 'places', name: 'Places', icon: 'pin', sub: 'By town', hash: '#places' })}
       ${card({ key: 'trips', name: 'Trips', icon: 'plane', sub: 'Away from home', hash: '#trips' })}
-      ${card({ key: 'events', name: 'Events', icon: 'cake', sub: 'Your big days', hash: '#events' })}</div>
+      ${card({ key: 'events', name: 'Events', icon: 'cake', sub: 'Your big days', hash: '#events' })}
+      ${pets.available() ? card({ key: 'pets', name: 'Pets', icon: 'paw', sub: 'Dogs, cats and more', hash: '#pets' }) : ''}</div>
   </div>`;
 
   root.addEventListener('click', async (e) => {
