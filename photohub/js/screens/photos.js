@@ -105,7 +105,7 @@ export async function render(root, params, ctx) {
     const unavailable = access.state === 'unavailable';
     list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div>
       <b>${unavailable ? 'Your photos show up in the phone app' : 'See your photos here'}</b>
-      ${access.web ? 'Pick photos and videos from your phone. They stay on your phone - nothing is uploaded.' : unavailable ? 'This page is running outside the Android app, so there is no photo library to read.' : 'Photo Hub needs your OK to read your photos and videos. It never changes or deletes them.'}
+      ${access.web ? 'Pick photos and videos from your phone. They stay on your phone - nothing is uploaded.' : unavailable ? 'This page is running outside the Android app, so there is no photo library to read.' : 'Photo Hub needs your OK to read your photos and videos. It never changes them, and never deletes one unless you choose to.'}
       ${unavailable ? '' : `<button class="primary-btn" id="ask">${access.web ? 'Pick photos' : access.state === 'denied' ? 'Turn on photo access' : 'Allow photo access'}</button>`}</div>`;
     const ask = root.querySelector('#ask');
     if (ask) ask.addEventListener('click', async () => {
@@ -371,19 +371,19 @@ export function openViewer(item, nav = null) {
   }
 
   draw(item);
-  if (nav) {
-    attachSwipe(v, {
-      canPrev: () => at() > 0,
-      canNext: () => { const i = at(); return i >= 0 && (i < list().length - 1 || !!(nav.hasMore && nav.hasMore())); },
-      prev: async () => { const i = at(); if (i > 0) draw(list()[i - 1]); },
-      next: async () => {
-        let l = list(); const i = at();
-        if (i === l.length - 1 && nav.more && nav.hasMore && nav.hasMore()) { await nav.more(); l = list(); }
-        if (i >= 0 && i < l.length - 1) draw(l[i + 1]);
-      },
-      close,
-    });
-  }
+  // 11/25: swipe left / right when there is a list; pinch / double-tap zoom on every photo, even one opened on its own
+  attachSwipe(v, {
+    canPrev: () => !!nav && at() > 0,
+    canNext: () => { if (!nav) return false; const i = at(); return i >= 0 && (i < list().length - 1 || !!(nav.hasMore && nav.hasMore())); },
+    prev: async () => { const i = at(); if (nav && i > 0) draw(list()[i - 1]); },
+    next: async () => {
+      if (!nav) return;
+      let l = list(); const i = at();
+      if (i === l.length - 1 && nav.more && nav.hasMore && nav.hasMore()) { await nav.more(); l = list(); }
+      if (i >= 0 && i < l.length - 1) draw(l[i + 1]);
+    },
+    close,
+  });
   document.body.appendChild(v);
 }
 

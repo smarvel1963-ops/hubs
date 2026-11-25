@@ -123,7 +123,7 @@ export function askForPhotoAccess(current) {
       title: 'Let Photo Hub see your photos',
       body: 'Photo Hub shows your photos and videos here, newest first, grouped by day.',
       list: [
-        'It only reads them. It never changes or deletes a photo.',
+        'It never changes a photo, and never deletes one unless you choose to (Android asks you too).',
         'Nothing leaves your phone unless you turn on Cloud Backup - it is optional.',
         'Android asks next: you can allow all, or pick some photos.',
       ],

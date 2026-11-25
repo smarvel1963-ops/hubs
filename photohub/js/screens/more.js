@@ -32,7 +32,7 @@ export async function render(root, params, ctx) {
     <button class="row" id="about"><span class="ico">${icons.info}</span>
       <span class="txt"><b>About this build</b><span>Photo Hub ${ctx.version}</span></span>${icons.chevron}</button>
     <p class="note">Photo Hub by Marvel Corp. Your photos stay on your phone unless you turn on Cloud Backup or link your own PC.
-      Photo Hub never deletes a photo from your phone.</p>
+      Photo Hub never deletes a photo on its own - only ones you choose to clean up, and Android asks you first.</p>
   </div>`;
 
   root.addEventListener('click', async (e) => {
@@ -51,10 +51,10 @@ export async function render(root, params, ctx) {
         title: 'Photo Hub',
         body: `Version ${ctx.version}. By Marvel Corp. Town names in Places come from GeoNames (geonames.org), shared under CC BY 4.0.`,
         list: [
-          'Your library: read only - Photo Hub never changes, moves or deletes a photo.',
+          // 11/25: was "read only - never changes, moves or deletes a photo" - no longer true since Free Up Phone Space + Duplicate Cleanup (0.7.6)
+          'Your library: Photo Hub never changes a photo. It removes one only when you choose it in Free Up Phone Space or Duplicate Cleanup - Android asks you too, and it waits in your phone\'s trash for about 30 days.',
           'Cloud Backup (optional, Google sign-in): private, encrypted copies in the United States. Invite-only during testing.',
           'Albums, tags, Places, the Private Vault and hearts are kept on your phone.',
-          'Coming later: Free Up Phone Space and People.',
         ],
       });
     } else if (b.dataset.go) ctx.go(b.dataset.go);

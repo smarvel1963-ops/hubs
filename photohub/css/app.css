@@ -332,8 +332,11 @@ h1, h2, h3 { margin: 0; }
 
 /* 11/25 swipe between photos (lib/swipe.js - Scott: "pan left to right and back ... like normal galleries work") */
 .viewer .vbody { display: contents; }
-.viewer .stage { position: relative; overflow: hidden; touch-action: pan-y pinch-zoom; }
-.viewer .stage img, .viewer .stage video { touch-action: pan-y pinch-zoom; -webkit-user-drag: none; user-select: none; will-change: transform; }
+/* 11/25 fix (Scott: "slide picks left to right with your fingers not working"): touch-action none - the viewer handles every finger move
+   (pan-y let the browser take a drag that started a little up or down). Pinch-zoom of the photo is done by swipe.js. */
+.viewer .stage { position: relative; overflow: hidden; touch-action: none; }
+.viewer .stage img, .viewer .stage video { touch-action: none; -webkit-user-drag: none; user-select: none; will-change: transform; }
+.viewer .stage img { transform-origin: 50% 50%; }
 .viewer .vpos { float: right; color: #9fb0e8; font-size: 12.5px; }
 .viewer .vnav { display: none; position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 48px; height: 64px; border-radius: 12px;
   background: rgba(0, 0, 0, 0.45); color: #fff; font-size: 40px; line-height: 1; }

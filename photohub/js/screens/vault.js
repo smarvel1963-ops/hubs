@@ -163,7 +163,7 @@ export async function render(root, params, ctx) {
       }));
     }
     await show(item);
-    if (all.length > 1) attachSwipe(v, {
+    attachSwipe(v, {   // 11/25: zoom works on one photo too; paging only when there is more than one
       canPrev: () => all.indexOf(cur) > 0,
       canNext: () => all.indexOf(cur) < all.length - 1,
       prev: () => (vs.isOpen() && all.indexOf(cur) > 0 ? show(all[all.indexOf(cur) - 1]) : null),
