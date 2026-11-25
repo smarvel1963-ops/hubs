@@ -5,8 +5,8 @@
 
 import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
-import { canRead, listMedia, thumbnailUrl, fullImageUrl } from '../native/media-library.js';
-import { formatDayLabel } from '../lib/timeline.js';
+import { canRead, listMedia, thumbnailUrl } from '../native/media-library.js';
+import { openViewer } from './photos.js';
 
 const DAY = 86400000;
 
@@ -63,16 +63,11 @@ export async function render(root, params, ctx) {
       });
     }
   }
+  // 11/25 (Scott: "pan left to right and back ... like normal galleries work"): the full photo viewer, swiping through every memory shown
+  const all = groups.flatMap((g) => g.items);
   box.addEventListener('click', (e) => {
     const c = e.target.closest('.cell'); if (!c) return;
-    const it = groups[+c.dataset.g].items[+c.dataset.i];
-    const v = document.createElement('div');
-    v.className = 'viewer';
-    v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button></div>
-      <div class="stage">${it.type === 'video' ? `<video src="${esc(fullImageUrl(it))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<img alt="" src="${esc(fullImageUrl(it))}">`}</div>
-      <div class="info"><b>${esc(groups[+c.dataset.g].label)}</b><br>${esc(formatDayLabel(it.date))} · ${esc(it.name || '')}</div>`;
-    v.querySelector('button').addEventListener('click', () => v.remove());
-    document.body.appendChild(v);
+    openViewer(groups[+c.dataset.g].items[+c.dataset.i], { items: () => all });
   });
   return () => { alive = false; document.querySelectorAll('.viewer').forEach((n) => n.remove()); };
 }

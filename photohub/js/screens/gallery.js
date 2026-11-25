@@ -60,7 +60,7 @@ export async function render(root, params, ctx) {
     if (b.dataset.tag) { ctx.go(`#photos?tag=${encodeURIComponent(b.dataset.tag)}&title=${encodeURIComponent('#' + b.dataset.tag)}`); return; }
     if (b.dataset.month) { ctx.go(`#photos?type=all&bucket=${encodeURIComponent(b.dataset.month)}&title=${encodeURIComponent(b.dataset.mname)}`); return; }
     const cell = b.closest('.tl-cell');
-    if (cell) { const it = (shown[+cell.dataset.b] || [])[+cell.dataset.i]; if (it) openViewer(it); }
+    if (cell) { const it = (shown[+cell.dataset.b] || [])[+cell.dataset.i]; if (it) openViewer(it, { items: () => shown.flat() }); }   // 11/25 swipe through what is on screen
   });
   const q = root.querySelector('#q');
   q.addEventListener('input', () => draw());

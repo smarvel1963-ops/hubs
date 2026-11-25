@@ -16,6 +16,7 @@ import * as trips from '../lib/trips.js';
 import * as events from '../lib/events.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
+import { attachSwipe } from '../lib/swipe.js';
 
 const PAGE = 120;
 
@@ -263,7 +264,8 @@ export async function render(root, params, ctx) {
     if (!cell) return;
     if (longFired) { longFired = false; return; }   // the finger that started the selection lifting off
     if (selecting) { toggleCell(cell); return; }
-    openViewer(byId.get(cell.dataset.id));
+    // 11/25 swipe: left / right pages through this screen's photos, loading more at the end
+    openViewer(byId.get(cell.dataset.id), { items: () => [...list.querySelectorAll('.cell')].map((c) => byId.get(c.dataset.id)), hasMore: () => hasMore, more: () => loadMore() });
   });
   root.querySelector('#selBtn').addEventListener('click', () => setSelecting(!selecting));
   root.querySelector('#selX').addEventListener('click', () => setSelecting(false));
@@ -305,49 +307,76 @@ export async function render(root, params, ctx) {
   };
 }
 
-export function openViewer(item) {
+/** Opens a photo full screen. nav (11/25 swipe, Scott: "pan left to right and back ... like normal galleries work"):
+ *  { items(): the photos in screen order, hasMore(): more to load, more(): loads them } - drag left / right pages through them. */
+export function openViewer(item, nav = null) {
   if (!item) return;
-  const isVideo = item.type === 'video';
   const v = document.createElement('div');
   v.className = 'viewer';
-  const when = new Date(item.date);
-  const dims = item.width && item.height ? `${item.width} x ${item.height}` : '';
-  // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here.
-  // 11/22 album sync: an album photo kept only in the cloud (put in on another phone) is fetched from the cloud to show it.
-  const cloud = !!item.cloud;
-  v.innerHTML = `<div class="top"><button class="icon-btn" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : true ? `<button class="pill-btn heart-btn ${item.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${item.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="totags">${icons.tag} Tags</button>${canShare(item) ? `<button class="pill-btn" id="toshare">${icons.share} Share</button>` : ''}${hasFullFile(item) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}` : ''}</div>
-    <div class="stage">${cloud ? '<div class="loading">Loading from the cloud...</div>' : isVideo ? (hasFullFile(item) ? `<video src="${esc(fullImageUrl(item))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : item.web ? `<img alt="" src="${esc(fullImageUrl(item))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" src="${esc(fullImageUrl(item))}">`}</div>
-    ${cloud ? '<div class="small-note">Kept in your cloud backup - this photo is in the album on another phone or the web.</div>' : !hasFullFile(item) ? `<div class="small-note">Small copy - pick this photo again to see it full size${item.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
-    <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${item.favorite ? ' &middot; Favorite' : ''}<br>
-      ${esc(item.name || '')}<br>${esc([formatBytes(item.size), dims, item.bucketName, isVideo ? formatDuration(item.durationMs) : ''].filter(Boolean).join(' · '))}</div>
-    <div class="vtags" id="vtags"></div>`;
-  let cloudUrl = '';
-  v.querySelector('button').addEventListener('click', () => { v.remove(); if (cloudUrl) URL.revokeObjectURL(cloudUrl); });
-  if (cloud) {
-    cloudFullUrl(item).then((url) => {
-      cloudUrl = url;
-      if (!v.isConnected) { URL.revokeObjectURL(url); return; }
-      v.querySelector('.stage').innerHTML = isVideo ? `<video src="${esc(url)}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<img alt="" src="${esc(url)}">`;
-    }).catch((e) => { const st = v.querySelector('.stage'); if (st) st.innerHTML = `<div class="empty"><b>Could not load it</b>${esc(e.message || e)}</div>`; });
+  v.innerHTML = '<div class="vbody"></div>';
+  const body = v.firstElementChild;
+  let cur = item, cloudUrl = '';
+  const list = () => (nav && nav.items ? nav.items().filter(Boolean) : [cur]);
+  const at = () => { const l = list(); const i = l.indexOf(cur); return i >= 0 ? i : l.findIndex((x) => x.id === cur.id && !!x.cloud === !!cur.cloud); };
+  const close = () => { v.remove(); if (cloudUrl) URL.revokeObjectURL(cloudUrl); cloudUrl = ''; };
+
+  function draw(it) {
+    if (cloudUrl) { URL.revokeObjectURL(cloudUrl); cloudUrl = ''; }
+    cur = it;
+    const isVideo = it.type === 'video';
+    const when = new Date(it.date);
+    const dims = it.width && it.height ? `${it.width} x ${it.height}` : '';
+    // 11/22: a picked photo (web version) can go into the Private Vault; picked videos play right here.
+    // 11/22 album sync: an album photo kept only in the cloud (put in on another phone) is fetched from the cloud to show it.
+    const cloud = !!it.cloud;
+    body.innerHTML = `<div class="top"><button class="icon-btn" id="vclose" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : `<button class="pill-btn heart-btn ${it.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${it.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="totags">${icons.tag} Tags</button>${canShare(it) ? `<button class="pill-btn" id="toshare">${icons.share} Share</button>` : ''}${hasFullFile(it) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}`}</div>
+      <div class="stage">${cloud ? '<div class="loading">Loading from the cloud...</div>' : isVideo ? (hasFullFile(it) ? `<video src="${esc(fullImageUrl(it))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : it.web ? `<img alt="" draggable="false" src="${esc(fullImageUrl(it))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" draggable="false" src="${esc(fullImageUrl(it))}">`}</div>
+      ${cloud ? '<div class="small-note">Kept in your cloud backup - this photo is in the album on another phone or the web.</div>' : !hasFullFile(it) ? `<div class="small-note">Small copy - pick this photo again to see it full size${it.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
+      <div class="info"><b>${esc(formatDayLabel(it.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${it.favorite ? ' &middot; Favorite' : ''}${nav ? `<span class="vpos">${at() + 1} of ${formatCount(list().length)}${nav.hasMore && nav.hasMore() ? '+' : ''}</span>` : ''}<br>
+        ${esc(it.name || '')}<br>${esc([formatBytes(it.size), dims, it.bucketName, isVideo ? formatDuration(it.durationMs) : ''].filter(Boolean).join(' · '))}</div>
+      <div class="vtags" id="vtags"></div>`;
+    body.querySelector('#vclose').addEventListener('click', close);
+    if (cloud) {
+      cloudFullUrl(it).then((url) => {
+        if (!v.isConnected || cur !== it) { URL.revokeObjectURL(url); return; }
+        cloudUrl = url;
+        body.querySelector('.stage').innerHTML = isVideo ? `<video src="${esc(url)}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<img alt="" draggable="false" src="${esc(url)}">`;
+      }).catch((e) => { const st = body.querySelector('.stage'); if (st && cur === it) st.innerHTML = `<div class="empty"><b>Could not load it</b>${esc(e.message || e)}</div>`; });
+    }
+    const tv = body.querySelector('#tovault');
+    if (tv) tv.addEventListener('click', () => { vaultPending.item = it; close(); location.hash = '#vault'; });
+    const ta = body.querySelector('#toalbum');
+    if (ta) ta.addEventListener('click', () => albumPicker(it));
+    const paintTags = () => { const el = body.querySelector('#vtags'); if (el) el.innerHTML = cloud ? '' : tagsOf(it).map((x) => `<span>#${esc(x)}</span>`).join(''); };
+    paintTags();
+    const sh = body.querySelector('#toshare');
+    if (sh) sh.addEventListener('click', async () => shareNote(await shareItems([it])));
+    const tg = body.querySelector('#totags');
+    if (tg) tg.addEventListener('click', () => tagSheet(it, paintTags));
+    const hb = body.querySelector('#heart');
+    if (hb) hb.addEventListener('click', () => {
+      const on = heart(it);
+      hb.classList.toggle('on', on);
+      hb.querySelector('span').textContent = on ? 'On your phone' : 'Keep on phone';
+      const cell = document.querySelector(`.cell[data-id="${CSS.escape(it.id)}"]`);
+      if (cell) { cell.querySelector('.fav')?.remove(); if (on) cell.insertAdjacentHTML('beforeend', `<span class="fav">${icons.heart}</span>`); }
+    });
   }
-  const tv = v.querySelector('#tovault');
-  if (tv) tv.addEventListener('click', () => { vaultPending.item = item; v.remove(); location.hash = '#vault'; });
-  const ta = v.querySelector('#toalbum');
-  if (ta) ta.addEventListener('click', () => albumPicker(item));
-  const paintTags = () => { const el = v.querySelector('#vtags'); if (el) el.innerHTML = cloud ? '' : tagsOf(item).map((x) => `<span>#${esc(x)}</span>`).join(''); };
-  paintTags();
-  const sh = v.querySelector('#toshare');
-  if (sh) sh.addEventListener('click', async () => shareNote(await shareItems([item])));
-  const tg = v.querySelector('#totags');
-  if (tg) tg.addEventListener('click', () => tagSheet(item, paintTags));
-  const hb = v.querySelector('#heart');
-  if (hb) hb.addEventListener('click', () => {
-    const on = heart(item);
-    hb.classList.toggle('on', on);
-    hb.querySelector('span').textContent = on ? 'On your phone' : 'Keep on phone';
-    const cell = document.querySelector(`.cell[data-id="${CSS.escape(item.id)}"]`);
-    if (cell) { cell.querySelector('.fav')?.remove(); if (on) cell.insertAdjacentHTML('beforeend', `<span class="fav">${icons.heart}</span>`); }
-  });
+
+  draw(item);
+  if (nav) {
+    attachSwipe(v, {
+      canPrev: () => at() > 0,
+      canNext: () => { const i = at(); return i >= 0 && (i < list().length - 1 || !!(nav.hasMore && nav.hasMore())); },
+      prev: async () => { const i = at(); if (i > 0) draw(list()[i - 1]); },
+      next: async () => {
+        let l = list(); const i = at();
+        if (i === l.length - 1 && nav.more && nav.hasMore && nav.hasMore()) { await nav.more(); l = list(); }
+        if (i >= 0 && i < l.length - 1) draw(l[i + 1]);
+      },
+      close,
+    });
+  }
   document.body.appendChild(v);
 }
 

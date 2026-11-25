@@ -11,6 +11,7 @@ import * as vs from '../lib/vault-store.js';
 import { isWebVersion, fileForVault } from '../native/media-library.js';
 import * as web from '../native/web-library.js';
 import { formatBytes, formatDayLabel, formatDuration } from '../lib/timeline.js';
+import { attachSwipe } from '../lib/swipe.js';
 
 export const pending = { item: null };   // a picked photo waiting to go in (from the Photos viewer)
 const IDLE_MS = 2 * 60 * 1000;
@@ -112,7 +113,7 @@ export async function render(root, params, ctx) {
     root.querySelector('[data-go]').addEventListener('click', () => ctx.go('#home'));
     root.querySelector('#lock').addEventListener('click', lockNow);
     root.querySelector('#add').addEventListener('click', () => addPhotos());
-    root.querySelectorAll('[data-v]').forEach((c) => c.addEventListener('click', () => viewer(byId.get(c.dataset.v))));
+    root.querySelectorAll('[data-v]').forEach((c) => c.addEventListener('click', () => viewer(byId.get(c.dataset.v), list)));
   }
 
   function addPhotos() {
@@ -137,22 +138,38 @@ export async function render(root, params, ctx) {
     input.click();
   }
 
-  async function viewer(item) {
+  // 11/25 swipe (Scott: "pan left to right and back ... like normal galleries work"): left / right pages through the vault
+  async function viewer(item, all = [item]) {
     if (!item || !vs.isOpen()) return;
-    const url = await vs.fullUrl(item);
     const v = document.createElement('div');
     v.className = 'viewer';
-    const close = () => { URL.revokeObjectURL(url); v.remove(); };
-    v.innerHTML = `<div class="top"><button class="icon-btn" id="vx" aria-label="Close">${icons.close}</button><span style="flex:1"></span>
-        <a class="pill-btn" id="vsave" href="${esc(url)}" download="${esc(item.name || 'photo')}">Save a copy</a>
-        <button class="pill-btn danger" id="vdel">Remove</button></div>
-      <div class="stage">${item.type === 'video' ? `<video src="${esc(url)}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<img alt="" src="${esc(url)}">`}</div>
-      <div class="info"><b>${esc(formatDayLabel(item.date))}</b> &middot; In your Private Vault<br>${esc(item.name)}<br>${esc(formatBytes(item.size))}</div>`;
-    v.querySelector('#vx').addEventListener('click', close);
-    v.querySelector('#vdel').addEventListener('click', () => openSheet({
-      icon: 'lock', title: 'Remove from the vault?', body: 'It is deleted from the vault for good. Save a copy first if you want to keep it.',
-      actions: [{ label: 'Remove', primary: true, onClick: async () => { await vs.remove(item.id); close(); draw(); } }, { label: 'Cancel' }],
-    }));
+    v.innerHTML = '<div class="vbody"></div>';
+    const body = v.firstElementChild;
+    let cur = item, url = '';
+    const close = () => { if (url) URL.revokeObjectURL(url); url = ''; v.remove(); };
+    async function show(it) {
+      const u = await vs.fullUrl(it);
+      if (url) URL.revokeObjectURL(url);
+      url = u; cur = it;
+      body.innerHTML = `<div class="top"><button class="icon-btn" id="vx" aria-label="Close">${icons.close}</button><span style="flex:1"></span>
+          <a class="pill-btn" id="vsave" href="${esc(url)}" download="${esc(it.name || 'photo')}">Save a copy</a>
+          <button class="pill-btn danger" id="vdel">Remove</button></div>
+        <div class="stage">${it.type === 'video' ? `<video src="${esc(url)}" controls playsinline style="max-width:100%;max-height:100%"></video>` : `<img alt="" draggable="false" src="${esc(url)}">`}</div>
+        <div class="info"><b>${esc(formatDayLabel(it.date))}</b> &middot; In your Private Vault${all.length > 1 ? `<span class="vpos">${all.indexOf(it) + 1} of ${all.length}</span>` : ''}<br>${esc(it.name)}<br>${esc(formatBytes(it.size))}</div>`;
+      body.querySelector('#vx').addEventListener('click', close);
+      body.querySelector('#vdel').addEventListener('click', () => openSheet({
+        icon: 'lock', title: 'Remove from the vault?', body: 'It is deleted from the vault for good. Save a copy first if you want to keep it.',
+        actions: [{ label: 'Remove', primary: true, onClick: async () => { await vs.remove(it.id); close(); draw(); } }, { label: 'Cancel' }],
+      }));
+    }
+    await show(item);
+    if (all.length > 1) attachSwipe(v, {
+      canPrev: () => all.indexOf(cur) > 0,
+      canNext: () => all.indexOf(cur) < all.length - 1,
+      prev: () => (vs.isOpen() && all.indexOf(cur) > 0 ? show(all[all.indexOf(cur) - 1]) : null),
+      next: () => (vs.isOpen() && all.indexOf(cur) < all.length - 1 ? show(all[all.indexOf(cur) + 1]) : null),
+      close,
+    });
     document.body.appendChild(v);
     const stop = () => { if (!vs.isOpen()) close(); };
     const t = setInterval(() => { if (!document.body.contains(v)) clearInterval(t); else stop(); }, 1000);

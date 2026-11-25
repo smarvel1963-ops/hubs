@@ -329,3 +329,14 @@ h1, h2, h3 { margin: 0; }
 .album-pick .nm { flex: 1; font-weight: 700; }
 .album-pick .ct { color: var(--muted); font-size: 13px; }
 .text-in { width: 100%; margin-top: 12px; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--text); font-size: 16px; }
+
+/* 11/25 swipe between photos (lib/swipe.js - Scott: "pan left to right and back ... like normal galleries work") */
+.viewer .vbody { display: contents; }
+.viewer .stage { position: relative; overflow: hidden; touch-action: pan-y pinch-zoom; }
+.viewer .stage img, .viewer .stage video { touch-action: pan-y pinch-zoom; -webkit-user-drag: none; user-select: none; will-change: transform; }
+.viewer .vpos { float: right; color: #9fb0e8; font-size: 12.5px; }
+.viewer .vnav { display: none; position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 48px; height: 64px; border-radius: 12px;
+  background: rgba(0, 0, 0, 0.45); color: #fff; font-size: 40px; line-height: 1; }
+.viewer .vnav.prev { left: 10px; }
+.viewer .vnav.next { right: 10px; }
+@media (hover: hover) and (pointer: fine) { .viewer .vnav:not([hidden]) { display: grid; place-items: center; } }
