@@ -8,14 +8,16 @@
 
 import { icons, logoSvg } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
-import { canRead, listMedia, getLibrarySummary, thumbnailUrl } from '../native/media-library.js';
+import { canRead, listMedia, getLibrarySummary, thumbnailUrl, myAlbums } from '../native/media-library.js';
+import { HOME_FOLDERS, ensureAlbum } from '../lib/mine.js';
+import * as sorting from '../lib/sort.js';
 import { formatCount } from '../lib/timeline.js';
 import { onThisDay } from './memories.js';
 import { hasNew } from './alerts.js';
 
 const TILES = [
   { key: 'memories', cls: 't-sunset', icon: 'calHeart', label: 'Memories', go: '#memories' },
-  { key: 'family', cls: 't-teal', icon: 'people', label: 'Family Albums', go: '#albums' },
+  { key: 'family', cls: 't-teal', icon: 'image', label: 'All Albums', go: '#albums' },   // 11/25 was 'Family Albums' - Family is its own folder now (row above)
   { key: 'trips', cls: 't-ocean', icon: 'plane', label: 'Vacation Trips', go: '#trips' },   // 11/24 built (lib/trips.js)
   { key: 'fav', cls: 't-rose', icon: 'heart', label: 'Favorites', go: '#photos?type=all&fav=1&title=Favorites' },
   { key: 'vault', cls: 't-violet', icon: 'lock', label: 'Private Vault', go: '#vault' },
@@ -50,6 +52,14 @@ export async function render(root, params, ctx) {
         <span class="txt"><b>See your photos here</b><span>${access.web ? 'Pick photos to try it - they stay on your phone.' : access.state === 'unavailable' ? 'Open Photo Hub on your Android phone to see your photos.' : 'Allow photo access to see them here.'}</span></span>
         ${icons.chevron}</button>`}
 
+    <!-- 11/25 (Scott: "at that home page you need to add family, personal info and cool stuff so those have easy access"): the three home
+         folders + To Sort (photos nobody sorted for a week), one tap each -->
+    <div class="hfolders">
+      ${HOME_FOLDERS.map((f, i) => `<button class="hfolder hf${i}" data-folder="${esc(f.id)}"><span class="hf-ico">${icons[f.icon]}</span>
+        <b>${esc(f.name)}</b><span class="hf-n" data-hfn="${esc(f.id)}"></span></button>`).join('')}
+      <button class="hfolder hf-sort" data-go="#sort"><span class="hf-ico">${icons.inbox}</span><b>To Sort</b><span class="hf-n" id="sortN"></span></button>
+    </div>
+
     <div id="memStrip"></div>
 
     <div class="tiles2">
@@ -71,11 +81,20 @@ export async function render(root, params, ctx) {
       if (canRead(a)) ctx.rerender();
       return;
     }
+    if (t.dataset.folder) {   // a home folder: made the first time it is opened, then its photos
+      const f = HOME_FOLDERS.find((x) => x.id === t.dataset.folder);
+      ensureAlbum(f.id);
+      ctx.go(`#photos?type=all&album=${encodeURIComponent(f.id)}&title=${encodeURIComponent(f.name)}`);
+      return;
+    }
     if (t.dataset.go) ctx.go(t.dataset.go);
   });
+  // how many photos are in each home folder (real counts; nothing shown for an empty one)
+  for (const a of myAlbums()) { const n = root.querySelector(`[data-hfn="${CSS.escape(a.id)}"]`); if (n && a.total) n.textContent = formatCount(a.total); }
 
   const bellDot = (memToday) => hasNew(memToday).then((n) => { const d = root.querySelector('#bell .dot'); if (alive && d) d.hidden = !n; }).catch(() => {});
   if (!readable) { bellDot(false); return () => { alive = false; }; }
+  sorting.count().then((c) => { const n = root.querySelector('#sortN'); if (alive && n && c.n) n.textContent = `${formatCount(c.n)}${c.more ? '+' : ''}`; }).catch(() => {});
 
   const setPic = async (sel, item, cls = '') => {
     if (!item) return;

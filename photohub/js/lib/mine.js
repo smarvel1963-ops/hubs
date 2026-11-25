@@ -74,7 +74,29 @@ export function renameAlbum(id, name) {
   const a = albums.find((x) => x.id === id);
   if (a && String(name).trim()) { a.name = String(name).trim().slice(0, 40); a.nameAt = Date.now(); saveAlbums(); }
 }
+// 11/25 HOME FOLDERS (Scott: "at that home page you need to add family, personal info and cool stuff so those have easy access"): three
+// albums with a FIXED id, so every phone, the web and the PC share the same three (album sync puts them together by id). Each is made the
+// first time it is used, and it is never deleted (Rename / Delete are not offered for them).
+export const HOME_FOLDERS = [
+  { id: 'hf-family', name: 'Family', icon: 'people' },
+  { id: 'hf-personal', name: 'Personal Info', icon: 'user' },
+  { id: 'hf-cool', name: 'Cool Stuff', icon: 'sparkles' },
+];
+export const isHomeFolder = (id) => HOME_FOLDERS.some((f) => f.id === id);
+/** Makes a home folder the first time it is needed; returns its id (or the id of an album that already exists). */
+export function ensureAlbum(id) {
+  if (albums.some((a) => a.id === id)) return id;
+  const f = HOME_FOLDERS.find((x) => x.id === id);
+  if (!f) return null;
+  const now = Date.now();
+  albums.push(fixAlbum({ id: f.id, name: f.name, created: now, nameAt: 1, members: [] }));   // nameAt 1: its own name never outvotes another phone's
+  delete gone[id];
+  saveAlbums();
+  return id;
+}
+
 export function deleteAlbum(id) {   // the photos themselves are never touched
+  if (isHomeFolder(id)) return;     // the three home folders always stay
   if (!albums.some((x) => x.id === id)) return;
   albums = albums.filter((x) => x.id !== id); gone[id] = Date.now(); saveAlbums();
 }

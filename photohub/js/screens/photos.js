@@ -18,6 +18,8 @@ import * as pets from '../native/pets.js';
 import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 import { attachSwipe } from '../lib/swipe.js';
+import { sendMenu } from './sendto.js';
+import { isHomeFolder } from '../lib/mine.js';
 
 const PAGE = 120;
 
@@ -38,7 +40,7 @@ export async function render(root, params, ctx) {
   root.innerHTML = `<div class="screen">
     <div class="subbar">
       <button class="icon-btn" id="back" aria-label="Back">${icons.back}</button>
-      <h1>${esc(title)}</h1><span class="count" id="count"></span><button class="pill-btn" id="selBtn">Select</button>${albumId ? `<button class="pill-btn" id="albumEdit">Edit</button>` : ''}
+      <h1>${esc(title)}</h1><span class="count" id="count"></span><button class="pill-btn" id="selBtn">Select</button>${albumId && !isHomeFolder(albumId) ? `<button class="pill-btn" id="albumEdit">Edit</button>` : ''}
     </div>
     ${bucketId || albumId || placeKey || tagKey || tripId ? '' : `<div class="chips">
       <button class="chip ${type === 'all' && !fav ? 'on' : ''}" data-go="#photos?type=all&title=All%20Photos">All</button>
@@ -195,7 +197,7 @@ export async function render(root, params, ctx) {
       hasMore = r.hasMore;
       root.querySelector('#count').textContent = `${formatCount(r.total)} ${r.total === 1 ? 'item' : 'items'}`;
       if (offset === 0 && !r.items.length) {
-        list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div><b>Nothing here yet</b>${tagKey ? 'Open any photo and tap Tags to add this tag.' : albumId ? 'Open any photo and tap "Add to album" to put it here.' : fav ? (access.web ? 'Open a photo and tap the heart - it stays on your phone.' : 'Heart a photo in your phone\'s gallery and it shows up here.') : 'No photos or videos on this phone match.'}</div>`;
+        list.innerHTML = `<div class="empty"><div class="ico">${icons.image}</div><b>Nothing here yet</b>${tagKey ? 'Open any photo and tap Tags to add this tag.' : albumId ? 'Hold any photo and send it here - or open it and tap "Add to album".' : fav ? (access.web ? 'Open a photo and tap the heart - it stays on your phone.' : 'Heart a photo in your phone\'s gallery and it shows up here.') : 'No photos or videos on this phone match.'}</div>`;
       } else {
         appendItems(r.items);
       }
@@ -243,11 +245,16 @@ export async function render(root, params, ctx) {
     cell.classList.toggle('sel', picked.has(id));
     paintSel();
   }
-  function longPress(cell) {
+  // 11/25 (Scott: "when you hold your finger on a pic a small drop down pops up for where you can send that pick"): holding a photo opens
+  // the Send to menu by your finger; its "Select more" starts picking several (what holding did before). While picking, holding picks.
+  function longPress(cell, x, y) {
     longFired = true;
-    if (!selecting) setSelecting(true);
-    if (!picked.has(cell.dataset.id)) toggleCell(cell);
     try { navigator.vibrate && navigator.vibrate(15); } catch (e) { /* no buzz */ }
+    if (selecting) { if (!picked.has(cell.dataset.id)) toggleCell(cell); return; }
+    sendMenu([byId.get(cell.dataset.id)], { x, y }, {
+      onSelectMore: () => { setSelecting(true); if (!picked.has(cell.dataset.id)) toggleCell(cell); },
+      done: () => { if (albumId) ctx.rerender(); },
+    });
   }
   const cancelPress = () => { clearTimeout(pressT); pressT = null; };
   list.addEventListener('pointerdown', (e) => {
@@ -255,16 +262,16 @@ export async function render(root, params, ctx) {
     if (!cell || (e.pointerType === 'mouse' && e.button !== 0)) return;
     longFired = false; pressAt = [e.clientX, e.clientY];
     cancelPress();
-    pressT = setTimeout(() => { pressT = null; longPress(cell); }, 450);
+    pressT = setTimeout(() => { pressT = null; longPress(cell, pressAt[0], pressAt[1]); }, 450);
   });
   list.addEventListener('pointermove', (e) => { if (pressT && pressAt && Math.hypot(e.clientX - pressAt[0], e.clientY - pressAt[1]) > 10) cancelPress(); });
   for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) list.addEventListener(ev, cancelPress);
-  // a long press on a phone also sends 'contextmenu' (and right-click on a PC): no menu, it selects
+  // a long press on a phone also sends 'contextmenu' (and right-click on a PC): the same Send to menu, never the browser's own
   list.addEventListener('contextmenu', (e) => {
     const cell = e.target.closest('.cell');
     if (!cell) return;
     e.preventDefault();
-    if (pressT) { cancelPress(); longPress(cell); } else if (!longFired) longPress(cell);
+    if (pressT) { cancelPress(); longPress(cell, e.clientX, e.clientY); } else if (!longFired) longPress(cell, e.clientX, e.clientY);
   });
   list.addEventListener('click', (e) => {
     const cell = e.target.closest('.cell');

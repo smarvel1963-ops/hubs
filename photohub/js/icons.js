@@ -32,6 +32,8 @@ export const icons = {
   close: s('<path d="M6 6l12 12M18 6 6 18"/>'),
   heart: s('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="currentColor"/>'),
   check: s('<path d="m5 12 4.5 4.5L19 7"/>'),
+  plus: s('<path d="M12 5v14M5 12h14"/>'),   // 11/25 Send to: New album
+  inbox: s('<path d="M3 13h5l1.5 3h5l1.5-3h5"/><path d="M5.5 5h13L21 13v6H3v-6z"/>'),   // 11/25 To Sort
   wifi: s('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/>'),
   phone: s('<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>'),
   shield: s('<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),

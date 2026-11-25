@@ -14,6 +14,8 @@ import { openSheet } from '../ui.js';
 
 /** What changed, newest first. Keep each line short and plain. */
 export const NOTES = {
+  '0.8.0': ['Family, Personal Info and Cool Stuff right on Home - one tap each.', 'Hold your finger on a photo to send it to any folder or album.',
+    'To Sort: photos you have not put anywhere for a week wait there, by day and place, ready to send.'],
   '0.7.11': ['A green "Update ready" bar (like our other apps) tells you when a new Photo Hub is out, and More has "Check for updates".'],
   '0.7.9': ['Slide between photos with your finger, both ways - even when your thumb curves.', 'Pinch or double-tap a photo to zoom in.'],
   '0.7.8': ['Pets: your dogs and cats, found right on your phone.'],

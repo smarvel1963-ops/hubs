@@ -7,6 +7,7 @@ import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, thumbnailUrl } from '../native/media-library.js';
 import { openViewer } from './photos.js';
+import { holdToSend } from './sendto.js';
 
 const DAY = 86400000;
 
@@ -69,5 +70,6 @@ export async function render(root, params, ctx) {
     const c = e.target.closest('.cell'); if (!c) return;
     openViewer(groups[+c.dataset.g].items[+c.dataset.i], { items: () => all });
   });
+  holdToSend(box, '.cell', (c) => groups[+c.dataset.g].items[+c.dataset.i]);   // 11/25 hold a photo -> Send to
   return () => { alive = false; document.querySelectorAll('.viewer').forEach((n) => n.remove()); };
 }

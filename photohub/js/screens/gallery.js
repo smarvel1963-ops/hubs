@@ -11,6 +11,7 @@ import { tagsOf, allTags } from '../lib/tags.js';
 import { canRead, listMedia, listAlbums, thumbnailUrl } from '../native/media-library.js';
 import { formatCount } from '../lib/timeline.js';
 import { openViewer } from './photos.js';
+import { holdToSend } from './sendto.js';
 import * as pets from '../native/pets.js';
 
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
@@ -45,6 +46,7 @@ export async function render(root, params, ctx) {
   </div>`;
 
   const tl = root.querySelector('#tl');
+  holdToSend(root, '.tl-cell', (c) => (shown[+c.dataset.b] || [])[+c.dataset.i]);   // 11/25 hold a photo -> Send to (before the click below)
   root.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
