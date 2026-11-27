@@ -8,7 +8,7 @@ import { icons } from '../icons.js';
 import { esc, askForPhotoAccess } from '../ui.js';
 import { canRead, listMedia, thumbnailUrl, fullImageUrl, heart, myAlbums, hasFullFile, canShare, shareItems } from '../native/media-library.js';
 import { pending as vaultPending } from './vault.js';
-import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum, addManyToAlbum, removeManyFromAlbum } from '../lib/mine.js';
+import { albumName, albumsWith, toggleInAlbum, createAlbum, renameAlbum, deleteAlbum, removeManyFromAlbum } from '../lib/mine.js';
 import { cloudFullUrl } from '../lib/cloud-images.js';
 import { tagsOf, addTags, removeTag, tagMany, allTags, parseTags, taggedSnapItems } from '../lib/tags.js';
 import * as places from '../lib/places.js';
@@ -54,7 +54,7 @@ export async function render(root, params, ctx) {
     <div id="status"></div>
     <div class="selbar" id="selbar" hidden><button class="icon-btn" id="selX" aria-label="Stop selecting">${icons.close}</button>
       <b id="selN">Tap photos to pick them</b><span style="flex:1"></span><button class="pill-btn" id="selAll">All</button>
-      ${albumId ? '<button class="pill-btn" id="selOut">Take out</button>' : tagKey ? '<button class="pill-btn" id="selUntag">Remove tag</button>' : ''}<button class="pill-btn" id="selShare">Share</button><button class="pill-btn" id="selTag">Tag</button><button class="primary-btn" id="selAdd">Add to album</button></div>
+      ${albumId ? '<button class="pill-btn" id="selOut">Take out</button>' : tagKey ? '<button class="pill-btn" id="selUntag">Remove tag</button>' : ''}<button class="pill-btn" id="selShare">Share</button><button class="pill-btn" id="selTag">Tag</button><button class="primary-btn" id="selSend">Send to</button></div>
   </div>`;
 
   const list = root.querySelector('#list');
@@ -228,7 +228,7 @@ export async function render(root, params, ctx) {
   const selbar = root.querySelector('#selbar');
   function paintSel() {
     root.querySelector('#selN').textContent = picked.size ? `${formatCount(picked.size)} selected` : 'Tap photos to pick them';
-    root.querySelector('#selAdd').disabled = !picked.size;
+    root.querySelector('#selSend').disabled = !picked.size;
     for (const id of ['#selOut', '#selTag', '#selUntag', '#selShare']) { const b = root.querySelector(id); if (b) b.disabled = !picked.size; }
   }
   function setSelecting(on) {
@@ -288,7 +288,16 @@ export async function render(root, params, ctx) {
     paintSel();
   });
   const pickedItems = () => [...picked].map((id) => byId.get(id)).filter(Boolean);
-  root.querySelector('#selAdd').addEventListener('click', () => albumPickerMany(pickedItems(), () => setSelecting(false)));
+  // 11/26 (Scott: "doesn't give you drop downs to send them all to a particular place like the vault"): "Send to" opens the same menu
+  // as holding a photo - Family, Personal Info, Cool Stuff, your albums, New album, Private Vault - for every picked photo at once.
+  // It took the place of "Add to album" (its albums are all in this menu).
+  root.querySelector('#selSend').addEventListener('click', (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    sendMenu(pickedItems(), { x: r.left + r.width / 2, y: r.top - 6 }, {
+      done: () => { setSelecting(false); if (albumId) ctx.rerender(); },
+      onVault: () => setSelecting(false),
+    });
+  });
   root.querySelector('#selShare').addEventListener('click', async () => { const r = await shareItems(pickedItems()); if (r === 'shared') setSelecting(false); shareNote(r); });
   root.querySelector('#selTag').addEventListener('click', async () => {
     const items = pickedItems();
@@ -358,7 +367,7 @@ export function openViewer(item, nav = null) {
       }).catch((e) => { const st = body.querySelector('.stage'); if (st && cur === it) st.innerHTML = `<div class="empty"><b>Could not load it</b>${esc(e.message || e)}</div>`; });
     }
     const tv = body.querySelector('#tovault');
-    if (tv) tv.addEventListener('click', () => { vaultPending.item = it; close(); location.hash = '#vault'; });
+    if (tv) tv.addEventListener('click', () => { vaultPending.items = [it]; vaultPending.skipped = 0; close(); location.hash = '#vault'; });
     const ta = body.querySelector('#toalbum');
     if (ta) ta.addEventListener('click', () => albumPicker(it));
     const paintTags = () => { const el = body.querySelector('#vtags'); if (el) el.innerHTML = cloud ? '' : tagsOf(it).map((x) => `<span>#${esc(x)}</span>`).join(''); };
@@ -394,28 +403,7 @@ export function openViewer(item, nav = null) {
   document.body.appendChild(v);
 }
 
-// 0.6.0 SELECT MANY: tap an album and every picked photo goes in it; "New album" makes one and puts them all in.
-function albumPickerMany(items, done) {
-  if (!items.length) return;
-  const back = document.createElement('div');
-  back.className = 'sheet-backdrop';
-  const mine = myAlbums();
-  back.innerHTML = `<div class="sheet"><div class="grab"></div><h2>Add ${formatCount(items.length)} to an album</h2>
-    <div class="album-pick">${mine.length ? mine.map((a) => `<button data-a="${esc(a.id)}"><span class="box">${icons.image}</span><span class="nm">${esc(a.name)}</span><span class="ct">${a.total}</span></button>`).join('') : '<p class="note">No albums yet - make your first one.</p>'}</div>
-    <div class="actions"><button class="primary-btn" data-new>+ New album</button><button class="ghost-btn" data-done>Cancel</button></div></div>`;
-  const put = (id) => { const n = addManyToAlbum(id, items); back.remove(); done(); note(n ? `${formatCount(n)} added to ${albumName(id)}` : `They were already in ${albumName(id)}`); };
-  back.addEventListener('click', async (e) => {
-    if (e.target === back || e.target.closest('[data-done]')) { back.remove(); return; }
-    const a = e.target.closest('[data-a]');
-    if (a) { put(a.dataset.a); return; }
-    if (e.target.closest('[data-new]')) {
-      back.remove();
-      const n = await askText({ title: 'New album', label: 'Give it a name - like "Grandkids", "Beach 2026" or "Recipes".', ok: 'Make album' });
-      if (n) put(createAlbum(n));
-    }
-  });
-  document.body.appendChild(back);
-}
+// (0.6.0's "Add N to an album" sheet for picked photos was here; 11/26 the select bar's "Send to" menu does it - sendto.js)
 // 11/24 TAGS: this photo's tags (tap one to take it off), your other tags to add with one tap, and a box for new ones.
 function tagSheet(item, done) {
   const back = document.createElement('div');

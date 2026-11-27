@@ -29,7 +29,7 @@ import * as alerts from './native/alerts.js';
 import * as runner from './backup/runner.js';
 import * as updates from './lib/updates.js';
 
-export const APP_VERSION = '0.8.3';
+export const APP_VERSION = '0.8.4';
 
 // 11/22 new look: bottom bar Home / Gallery / Albums / Cloud / More (Scott: "your ideas are good")
 const ROUTES = {

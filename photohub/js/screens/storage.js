@@ -264,7 +264,7 @@ export async function render(root, params, ctx) {
     line.textContent = r.count ? `Remembered on this phone: ${formatCount(r.count)} small ${r.count === 1 ? 'copy' : 'copies'} · ${formatBytes(r.bytes)}. Full size comes back when you pick a photo again.` : 'Photos you pick are remembered here as small copies, so they are waiting next time.';
     if (r.count) { btn.hidden = false; btn.onclick = async () => { if (!confirm('Forget the photos Photo Hub remembers on this phone? Your hearts, albums, vault and cloud backups stay.')) return; await forgetAll(); ctx.setAccess(await ctx.refreshAccess()); ctx.rerender(); }; }
   }).catch(() => {});
-  vs.hasCode().then((h) => { const n = root.querySelector('#vaultLine'); if (alive && n) n.textContent = h ? 'Locked & private' : 'Set your code'; }).catch(() => {});
+  vs.hasCode().then((h) => { const n = root.querySelector('#vaultLine'); if (alive && n) n.textContent = !h ? 'Set your code' : vs.isOpen() ? 'Open now - Lock is inside' : 'Locked & private'; }).catch(() => {});   // 11/26 once a session
   if (canRead(ctx.access)) listMedia({ type: 'all', favoritesOnly: true, limit: 3, offset: 0 }).then(async (f) => {
     const box = root.querySelector('#favPics');
     for (const it of f.items) { const url = await thumbnailUrl(it); if (alive && url && box) box.insertAdjacentHTML('beforeend', `<img alt="" src="${esc(url)}">`); }

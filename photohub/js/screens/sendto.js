@@ -1,4 +1,8 @@
 // sendto.js - C:\MarvelApps\photohub\www\js\screens\sendto.js
+// 11/26 MANY TO THE VAULT (Scott: "When you have a lot of bunch of pictures and you highlight them it doesn't give you drop downs to send
+// them all to a particular place like the vault"): the select bar's "Send to" opens this menu for every picked photo, and "Private Vault"
+// now takes all of them (it used to show for one photo only). Photos kept only in the cloud or only as a small copy can't go in; the
+// row says how many can, and the vault says how many were left out.
 // SEND TO (11/25, Scott: "when you hold your finger on a pic a small drop down pops up for where you can send that pick"). Hold a photo
 // anywhere (Photos, Gallery, Memories, Photo Inbox, Unsorted Photos) and a small menu opens right by your finger: Family, Personal Info, Cool Stuff (the home
 // folders), then every album you made, "+ New album", "Private Vault" and - where you can pick several - "Select more" (what holding a
@@ -23,7 +27,8 @@ export function closeSendMenu() { document.querySelectorAll('.send-back').forEac
 
 /**
  * Opens the menu by the point (x, y).
- * opts: { onSelectMore() - adds "Select more"; done(albumId) - after photos went into an album; title - header text }
+ * opts: { onSelectMore() - adds "Select more"; done(albumId) - after photos went into an album; onVault() - just before going to the
+ *        vault with them; title - header text }
  */
 export function sendMenu(items, at, opts = {}) {
   items = (items || []).filter(Boolean);
@@ -32,6 +37,7 @@ export function sendMenu(items, at, opts = {}) {
   const one = items.length === 1 ? items[0] : null;
   const inn = one ? new Set(albumsWith(one)) : new Set();
   const mine = myAlbums().filter((a) => !isHomeFolder(a.id));
+  const toVault = items.filter((it) => !it.cloud && hasFullFile(it));
   const row = (id, icon, name, extra = '') => `<button class="sm-row" role="menuitem" data-a="${esc(id)}">${icons[icon] || icons.image}
       <span>${esc(name)}</span>${inn.has(id) ? `<i class="sm-in">${icons.check}</i>` : extra}</button>`;
   const back = document.createElement('div');
@@ -42,7 +48,7 @@ export function sendMenu(items, at, opts = {}) {
       ${mine.length ? `<div class="sm-sep"></div>${mine.map((a) => row(a.id, 'image', a.name)).join('')}` : ''}
       <div class="sm-sep"></div>
       <button class="sm-row" role="menuitem" data-new>${icons.plus}<span>New album</span></button>
-      ${one && !one.cloud && hasFullFile(one) ? `<button class="sm-row" role="menuitem" data-vault>${icons.lock}<span>Private Vault</span></button>` : ''}
+      ${toVault.length ? `<button class="sm-row" role="menuitem" data-vault>${icons.lock}<span>Private Vault${toVault.length < items.length ? ` (${toVault.length} of ${items.length})` : ''}</span></button>` : ''}
       ${opts.onSelectMore ? `<button class="sm-row" role="menuitem" data-sel>${icons.check}<span>Select more</span></button>` : ''}
     </div>`;
   document.body.appendChild(back);
@@ -70,10 +76,16 @@ export function sendMenu(items, at, opts = {}) {
     if (e.target.closest('[data-new]')) {
       done();
       const n = await askText({ title: 'New album', label: 'Give it a name - like "Grandkids", "Beach 2026" or "Recipes".', ok: 'Make album' });
-      if (n) { const id = createAlbum(n); const k = addManyToAlbum(id, items); toast(k ? `Sent to ${albumName(id)}` : `Already in ${albumName(id)}`); if (opts.done) opts.done(id); }
+      if (n) { const id = createAlbum(n); const k = addManyToAlbum(id, items); toast(k ? (one ? `Sent to ${albumName(id)}` : `${k} sent to ${albumName(id)}`) : `Already in ${albumName(id)}`); if (opts.done) opts.done(id); }
       return;
     }
-    if (e.target.closest('[data-vault]')) { done(); vaultPending.item = one; location.hash = '#vault'; return; }
+    if (e.target.closest('[data-vault]')) {
+      done();
+      vaultPending.items = toVault; vaultPending.skipped = items.length - toVault.length;
+      if (opts.onVault) opts.onVault();
+      location.hash = '#vault';
+      return;
+    }
     if (e.target.closest('[data-sel]')) { done(); opts.onSelectMore(); }
   });
   back.addEventListener('contextmenu', (e) => e.preventDefault());

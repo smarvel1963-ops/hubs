@@ -14,6 +14,8 @@ import { openSheet } from '../ui.js';
 
 /** What changed, newest first. Keep each line short and plain. */
 export const NOTES = {
+  '0.8.4': ['Pick many photos, tap Send to, and send them all at once - to Family, an album or your Private Vault.',
+    'Your Private Vault stays open after you type your code - until you tap Lock, close Photo Hub or leave it 15 minutes.'],
   '0.8.2': ['Trips from the cloud: your trips show even after their photos leave the phone - and on the web version too.'],
   '0.8.1': ['Photo Inbox: new photos from your camera, texts and downloads wait there until you sort them - with a warning before they move on.',
     'Unsorted Photos: what is left unsorted after a week, kept in your cloud.',

@@ -4,10 +4,32 @@
 // 250,000 rounds, a random salt) and kept only on this phone (IndexedDB). Nothing is uploaded; Marvel Corp never sees the code or the
 // photos. Without the code nobody can open them - and a forgotten code can't be reset, only the whole vault erased.
 // The key lives in memory only while the vault is open; lock() forgets it.
+// 11/26 ONCE A SESSION (Scott's Day Hub list 11/25: "You shouldn't have to enter the vault password over and over during the same session"):
+// once the code is typed the vault stays open for this run of Photo Hub - leaving the vault or switching apps no longer locks it. It locks
+// when you tap Lock, when Photo Hub is closed (the key was only ever in memory), or after IDLE_MINUTES without a tap anywhere in Photo Hub
+// (time spent in the background counts, so a phone left with Photo Hub open behind other apps locks too).
 
 const DB = 'photohub-vault', VER = 1, ROUNDS = 250000, CHECK = 'photohub-vault-ok';
 const LS_TRIES = 'photohub.vault.tries';
-let key = null;
+export const IDLE_MINUTES = 15;
+const idleMs = () => globalThis.PH_VAULT_IDLE_MS ?? IDLE_MINUTES * 60 * 1000;   // tests shorten it
+let key = null, lastUse = 0, timer = null;
+const lockFns = new Set();
+
+/** Any tap / key in Photo Hub keeps an open vault open. */
+export function touch() { if (key) lastUse = Date.now(); }
+function idleCheck() { if (key && Date.now() - lastUse >= idleMs()) lock(); }
+function opened(k) {
+  key = k; lastUse = Date.now();
+  clearInterval(timer); timer = setInterval(idleCheck, Math.min(30000, Math.max(250, idleMs() / 4)));
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', touch, true);
+  document.addEventListener('keydown', touch, true);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') idleCheck(); });
+}
+/** fn() runs each time the vault locks (Lock, the idle time, Forgot your code). Returns a function that stops it. */
+export function onLock(fn) { lockFns.add(fn); return () => lockFns.delete(fn); }
 
 function db() {
   return new Promise((resolve, reject) => {
@@ -47,8 +69,12 @@ async function seal(k, data) {
 const open = (k, box) => crypto.subtle.decrypt({ name: 'AES-GCM', iv: box.iv }, k, box.data);
 
 export async function hasCode() { return !!(await tx('meta', 'readonly', (s) => req(s.get('lock')))); }
-export function isOpen() { return !!key; }
-export function lock() { key = null; }
+export function isOpen() { idleCheck(); return !!key; }
+export function lock() {
+  const was = !!key;
+  key = null; clearInterval(timer); timer = null;
+  if (was) lockFns.forEach((fn) => { try { fn(); } catch (e) { /* a screen that is gone */ } });
+}
 
 /** First time: the code becomes the vault's key. 4 to 8 digits. */
 export async function setCode(code) {
@@ -57,7 +83,7 @@ export async function setCode(code) {
   const k = await derive(code, salt);
   const check = await seal(k, new TextEncoder().encode(CHECK));
   await tx('meta', 'readwrite', (s) => s.put({ salt, rounds: ROUNDS, check }, 'lock'));
-  key = k;
+  opened(k);
 }
 
 /** Wait time after wrong codes: 5 wrong -> 30 s, then doubling, up to 15 minutes. */
@@ -82,7 +108,7 @@ export async function unlock(code) {
     if (!ok) throw new Error('no');
   } catch (e) { wrong(); return false; }
   try { localStorage.removeItem(LS_TRIES); } catch (e) { /* ignore */ }
-  key = k;
+  opened(k);
   return true;
 }
 
@@ -128,7 +154,7 @@ export async function remove(id) {
 
 /** Forgot the code: everything in the vault is deleted for good and a new code can be set. */
 export async function eraseAll() {
-  key = null;
+  lock();
   try { localStorage.removeItem(LS_TRIES); } catch (e) { /* ignore */ }
   await new Promise((resolve) => { const r = indexedDB.deleteDatabase(DB); r.onsuccess = r.onerror = r.onblocked = () => resolve(); });
 }
