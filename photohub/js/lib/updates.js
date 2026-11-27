@@ -14,6 +14,8 @@ import { openSheet } from '../ui.js';
 
 /** What changed, newest first. Keep each line short and plain. */
 export const NOTES = {
+  '0.8.5': ['Tap a photo, then tap where it goes: Family, Personal Info and Cool Stuff have their own buttons under the photo, plus Vault and More. Tap again to take it back out.',
+    'Swiping between photos and tapping right after works every time.'],
   '0.8.4': ['Pick many photos, tap Send to, and send them all at once - to Family, an album or your Private Vault.',
     'Your Private Vault stays open after you type your code - until you tap Lock, close Photo Hub or leave it 15 minutes.'],
   '0.8.2': ['Trips from the cloud: your trips show even after their photos leave the phone - and on the web version too.'],

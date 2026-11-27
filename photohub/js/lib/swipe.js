@@ -171,6 +171,11 @@ export function attachSwipe(v, opts) {
   v.addEventListener('pointerup', end);
   v.addEventListener('pointercancel', end);
   v.addEventListener('dragstart', (e) => { if (e.target.closest('.stage')) e.preventDefault(); });
+  // 11/27 fix: after a FAST flick, the browser's own touch handling took the next tap anywhere in the viewer as "stop that fling" and
+  // never made it a click - so the first tap on Send to / Add to album / Close after a quick swipe did nothing (proven with real touch
+  // input: a slow swipe never lost the tap, a fast one lost it even 6 seconds later). The swipe already runs on pointer events, so the
+  // photo's own finger moves are kept from the browser here and it never starts a fling. Taps, pinch and video controls are unchanged.
+  v.addEventListener('touchmove', (e) => { if (e.cancelable && e.target.closest && e.target.closest('.stage')) e.preventDefault(); }, { passive: false });
   prevB.addEventListener('click', () => page(1));
   nextB.addEventListener('click', () => page(-1));
 

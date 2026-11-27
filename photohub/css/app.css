@@ -231,7 +231,10 @@ h1, h2, h3 { margin: 0; }
 .selbar .primary-btn { padding: 8px 14px; width: auto; margin-top: 0; }   /* 11/26: its own size, so it only wraps when the row is full */
 .selbar button:disabled { opacity: 0.45; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + 74px); z-index: 60; background: #1d2b5c; color: #fff;
-  padding: 10px 16px; border-radius: 12px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.4); max-width: 90vw; text-align: center; }
+  padding: 10px 16px; border-radius: 12px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.4); max-width: 90vw; text-align: center;
+  pointer-events: none; }   /* 11/27: a toast never eats a tap (it sat on the viewer's Send to row, so the next tap there was lost) */
+/* 11/27: with a photo open, toasts show near the top of the photo - never over the Send to row a thumb is using */
+body:has(.viewer) .toast { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 96px); }
 .cell .incloud { position: absolute; right: 4px; top: 2px; font-size: 15px; color: #fff; text-shadow: 0 1px 3px #000; }   /* album photo kept in the cloud */
 .sentinel { height: 1px; }
 .empty { text-align: center; padding: 38px 18px; color: var(--muted); }
@@ -363,6 +366,15 @@ h1, h2, h3 { margin: 0; }
 .viewer .vnav.prev { left: 10px; }
 .viewer .vnav.next { right: 10px; }
 @media (hover: hover) and (pointer: fine) { .viewer .vnav:not([hidden]) { display: grid; place-items: center; } }
+/* 11/27 the viewer's Send to row (Scott: tap a photo -> choices where it goes): Home's folder symbols, Vault, More - under the photo */
+.viewer .vsend { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: rgba(10, 20, 50, 0.9); border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.viewer .vs-h { color: #9fb0e8; font-size: 11.5px; font-weight: 700; line-height: 1.1; width: 34px; flex: none; }
+.viewer .vs-b { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 2px 6px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.07); color: #e6ecff; font-size: 11px; font-weight: 600; line-height: 1.15; font-family: inherit; cursor: pointer; }
+.viewer .vs-b span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewer .vs-b svg { width: 22px; height: 22px; }
+.viewer .vs-b.on { background: #2f6bff; border-color: #6d94ff; color: #fff; }
+.viewer .vs-b:active { transform: scale(0.96); }
 
 /* 11/25 SEND TO (screens/sendto.js - Scott: "when you hold your finger on a pic a small drop down pops up for where you can send that pick") */
 .send-back { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.12); }

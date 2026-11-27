@@ -19,7 +19,7 @@ import { askText, openSheet as sheet } from '../ui.js';
 import { groupByDay, formatDayLabel, formatBytes, formatDuration, formatCount } from '../lib/timeline.js';
 import { attachSwipe } from '../lib/swipe.js';
 import { sendMenu } from './sendto.js';
-import { isHomeFolder } from '../lib/mine.js';
+import { isHomeFolder, HOME_FOLDERS, ensureAlbum, inAlbum } from '../lib/mine.js';
 
 const PAGE = 120;
 
@@ -355,6 +355,7 @@ export function openViewer(item, nav = null) {
     body.innerHTML = `<div class="top"><button class="icon-btn" id="vclose" aria-label="Close">${icons.close}</button><span style="flex:1"></span>${cloud ? `<button class="pill-btn" id="toalbum">${icons.image} Albums</button>` : `<button class="pill-btn heart-btn ${it.favorite ? 'on' : ''}" id="heart" aria-label="Keep on phone">${icons.heart} <span>${it.favorite ? 'On your phone' : 'Keep on phone'}</span></button><button class="pill-btn" id="toalbum">${icons.image} Add to album</button><button class="pill-btn" id="totags">${icons.tag} Tags</button>${canShare(it) ? `<button class="pill-btn" id="toshare">${icons.share} Share</button>` : ''}${hasFullFile(it) ? `<button class="pill-btn" id="tovault">${icons.lock} Put in Vault</button>` : ''}`}</div>
       <div class="stage">${cloud ? '<div class="loading">Loading from the cloud...</div>' : isVideo ? (hasFullFile(it) ? `<video src="${esc(fullImageUrl(it))}" controls playsinline style="max-width:100%;max-height:100%"></video>` : it.web ? `<img alt="" draggable="false" src="${esc(fullImageUrl(it))}">` : `<div class="empty"><div class="ico">${icons.video}</div><b>Video</b>Playing videos comes in a later step.</div>`) : `<img alt="" draggable="false" src="${esc(fullImageUrl(it))}">`}</div>
       ${cloud ? '<div class="small-note">Kept in your cloud backup - shown from the cloud (it is not on this phone or picked here).</div>' : !hasFullFile(it) ? `<div class="small-note">Small copy - pick this photo again to see it full size${it.type === 'video' ? ' and play it' : ''} or put it in the vault.</div>` : ''}
+      ${sendRow(it)}
       <div class="info"><b>${esc(formatDayLabel(it.date))}</b> &middot; ${esc(when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}${it.favorite ? ' &middot; Favorite' : ''}${nav ? `<span class="vpos">${at() + 1} of ${formatCount(list().length)}${nav.hasMore && nav.hasMore() ? '+' : ''}</span>` : ''}<br>
         ${esc(it.name || '')}<br>${esc([formatBytes(it.size), dims, it.bucketName, isVideo ? formatDuration(it.durationMs) : ''].filter(Boolean).join(' · '))}</div>
       <div class="vtags" id="vtags"></div>`;
@@ -368,6 +369,33 @@ export function openViewer(item, nav = null) {
     }
     const tv = body.querySelector('#tovault');
     if (tv) tv.addEventListener('click', () => { vaultPending.items = [it]; vaultPending.skipped = 0; close(); location.hash = '#vault'; });
+    // 11/27 SEND TO ROW (Scott: "click pic ... you get choices where it needs to go like cloud or vault or different folder"; his Day Hub
+    // list 11/25: "when you highlight a pic, pick a symbol that matches a folder on the home page"): the home folders' own symbols, one tap
+    // each - tap again to take it back out (the photo itself never moves) - plus the Private Vault and More (your albums, New album).
+    const vs = body.querySelector('.vsend');
+    if (vs) vs.addEventListener('click', (e) => {
+      const f = e.target.closest('[data-hf]');
+      if (f) {
+        const id = ensureAlbum(f.dataset.hf);
+        if (!id) return;
+        const on = toggleInAlbum(id, it);
+        f.classList.toggle('on', on);
+        f.setAttribute('aria-pressed', on ? 'true' : 'false');
+        note(on ? `Sent to ${albumName(id)}` : `Taken out of ${albumName(id)} - the photo itself stays where it is`);
+        if (nav && nav.changed) nav.changed();
+        return;
+      }
+      if (e.target.closest('[data-vault]')) { vaultPending.items = [it]; vaultPending.skipped = 0; close(); location.hash = '#vault'; return; }
+      const m = e.target.closest('[data-more]');
+      if (m) {
+        const r = m.getBoundingClientRect();
+        sendMenu([it], { x: r.left + r.width / 2, y: r.top - 6 }, {
+          title: 'Send to',
+          done: () => { for (const b of vs.querySelectorAll('[data-hf]')) { const on = inAlbum(b.dataset.hf, it); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); } if (nav && nav.changed) nav.changed(); },
+          onVault: () => close(),
+        });
+      }
+    });
     const ta = body.querySelector('#toalbum');
     if (ta) ta.addEventListener('click', () => albumPicker(it));
     const paintTags = () => { const el = body.querySelector('#vtags'); if (el) el.innerHTML = cloud ? '' : tagsOf(it).map((x) => `<span>#${esc(x)}</span>`).join(''); };
@@ -401,6 +429,18 @@ export function openViewer(item, nav = null) {
     close,
   });
   document.body.appendChild(v);
+}
+
+// 11/27 the viewer's Send to row: Family / Personal Info / Cool Stuff with the same symbols as Home (lit when the photo is in it), the
+// Private Vault (a photo picked full size; not one kept only in the cloud) and More. Lives under the photo, where a thumb reaches.
+function sendRow(it) {
+  const canVault = !it.cloud && hasFullFile(it);
+  return `<div class="vsend" role="group" aria-label="Send to">
+    <span class="vs-h">Send to</span>
+    ${HOME_FOLDERS.map((f) => { const on = inAlbum(f.id, it); return `<button class="vs-b ${on ? 'on' : ''}" data-hf="${esc(f.id)}" aria-pressed="${on}">${icons[f.icon] || icons.image}<span>${esc(f.name)}</span></button>`; }).join('')}
+    ${canVault ? `<button class="vs-b" data-vault>${icons.lock}<span>Vault</span></button>` : ''}
+    <button class="vs-b" data-more>${icons.plus}<span>More</span></button>
+  </div>`;
 }
 
 // (0.6.0's "Add N to an album" sheet for picked photos was here; 11/26 the select bar's "Send to" menu does it - sendto.js)
